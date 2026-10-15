@@ -535,6 +535,28 @@ try:
                     (json.dumps(obj, ensure_ascii=False), iid))
         print(f"[entrypoint] inbound {iid} now answers on {host}:{port} ({force_tls})")
 
+    # 3.10 keeps the public address in its own `hosts` table as well, and that
+    # row is what the subscription actually builds links from once it is there.
+    # A row left pointing at the previous domain keeps handing out an address
+    # that no longer answers, so it moves with the domain instead of sitting
+    # still. Only rows that already name an address are touched, and only for the
+    # inbound this entrypoint manages -- anything else is someone's own work.
+    ids = [r[0] for r in con.execute(
+        "SELECT id FROM inbounds WHERE port=?", (in_port,))]
+    moved = 0
+    if ids:
+        placeholders = ",".join("?" * len(ids))
+        for hid, addr in con.execute(
+                f"SELECT id, address FROM hosts WHERE inbound_id IN ({placeholders})",
+                ids):
+            if not addr or addr == host:
+                continue
+            con.execute("UPDATE hosts SET address=?, sni=?, port=?, security=? "
+                        "WHERE id=?", (host, host, port, force_tls, hid))
+            moved += 1
+    if moved:
+        print(f"[entrypoint] moved {moved} subscription address(es) to {host}")
+
     row = con.execute("SELECT value FROM settings WHERE key='subURI'").fetchone()
     cur = row[0] if row else ""
     if cur and ":2096" not in cur and not cur.startswith("http://"):
