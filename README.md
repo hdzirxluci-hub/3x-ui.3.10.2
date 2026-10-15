@@ -2,7 +2,7 @@
 
 # 3x-ui روی Railway
 
-**پنل 3x-ui نسخه `v3.9.0` — با یک پورت، روی یک سرویس Railway**
+**پنل 3x-ui نسخه `v3.10.2` — با یک پورت، روی یک سرویس Railway**
 
 بدون VPS، بدون دامنه، بدون Cloudflare. لینک ساب می‌گیری، روی گوشی کار می‌کند.
 
@@ -146,7 +146,7 @@ client ──https──▶ Railway edge (TLS) ──http──▶ nginx :$PORT
 
 | فایل | کار |
 |---|---|
-| `Dockerfile` | دبیان + باینری رسمی `x-ui v3.9.0` + nginx |
+| `Dockerfile` | دبیان + باینری رسمی `x-ui v3.10.2` + nginx |
 | `entrypoint.sh` | تنظیم‌ها، ساخت اینباند، بالا آوردن سرویس‌ها |
 | `nginx.conf.template` | تفکیک مسیرها + برند روی پنل |
 | `subserver.py` | سازگار کردن هدرها با اپ‌ها |

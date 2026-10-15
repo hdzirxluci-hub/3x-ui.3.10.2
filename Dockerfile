@@ -10,7 +10,7 @@ FROM ubuntu:24.04
 
 # Pinned on purpose: the API paths and the inbound payload shape in
 # entrypoint.sh were verified against this exact release.
-ARG XUI_VERSION=v3.9.0
+ARG XUI_VERSION=v3.10.2
 ARG TARGETARCH=amd64
 
 ENV DEBIAN_FRONTEND=noninteractive

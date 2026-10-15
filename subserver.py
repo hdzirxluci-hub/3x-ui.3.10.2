@@ -46,49 +46,14 @@ BROWSER_UA = [
 
 # Headers that must not be echoed back: hop-by-hop ones, plus the ones this
 # process sets itself.
-# The subscription page shipped inside the panel is violet. This block is
-# appended to its HTML so the page comes out blue; it is the whole page's
-# palette and nothing else, and it is re-declared after the page's own
-# stylesheet so it wins without !important on the layout itself.
+# 3x-ui 3.10 brought its own subscription page, and it is already blue:
+# a clean light/dark card driven by the theme tokens. So this block is no
+# longer a repair -- it is only the accent, set to the lighter blue the
+# rest of the brand uses, and it stays out of the way of everything else.
 BLUE_CSS = """
-/* ---- PABLO: blue ---- */
+/* ---- PABLO: blue accent ---- */
 .subscription-page{
-  --sub-grad-from:#0ea5e9;--sub-grad-to:#06b6d4;
-  --sub-ink-from:#0369a1;--sub-ink-to:#0e7490;
-  --sub-accent:#0284c7;
-  --bg-page:linear-gradient(135deg,#e0f2fe 0%,#dbeafe 52%,#e0f7ff 100%);
-  --sub-card-shadow:0 1px 3px rgba(15,23,42,.05),0 20px 56px rgba(2,132,199,.16);
-  --sub-card-sheen:linear-gradient(135deg,rgba(255,255,255,.75),rgba(255,255,255,0) 42%,rgba(2,132,199,.22) 88%);
-  --sub-blob-1:rgba(14,165,233,.5);--sub-blob-2:rgba(6,182,212,.45);
-  --sub-grid:rgba(2,132,199,.06);
-  --sub-hairline:linear-gradient(90deg,rgba(14,165,233,.45),rgba(6,182,212,.45));
-  --sub-tile-bg:rgba(2,132,199,.05);--sub-tile-border:rgba(2,132,199,.12);
-  --sub-row-bg:rgba(2,132,199,.045);--sub-row-border:rgba(2,132,199,.11);
-  --sub-row-bg-hover:rgba(2,132,199,.09);--sub-row-border-hover:rgba(2,132,199,.3);
-  --sub-row-glow:rgba(2,132,199,.28);
-}
-.subscription-page.is-dark{
-  --sub-grad-from:#60a5fa;--sub-grad-to:#22d3ee;
-  --sub-ink-from:#93c5fd;--sub-ink-to:#67e8f9;
-  --sub-accent:#60a5fa;
-  --bg-page:radial-gradient(ellipse 120% 90% at 18% -10%,#0b2545 0%,#101820 52%,#0b0f14 100%);
-  --sub-card-shadow:0 1px 3px rgba(0,0,0,.4),0 24px 64px rgba(2,132,199,.24);
-  --sub-card-sheen:linear-gradient(135deg,rgba(255,255,255,.16),rgba(255,255,255,0) 42%,rgba(96,165,250,.4) 88%);
-  --sub-blob-1:rgba(14,165,233,.34);--sub-blob-2:rgba(34,211,238,.26);
-  --sub-grid:rgba(255,255,255,.035);
-  --sub-hairline:linear-gradient(90deg,rgba(96,165,250,.45),rgba(34,211,238,.45));
-  --sub-tile-bg:rgba(96,165,250,.07);--sub-tile-border:rgba(96,165,250,.14);
-  --sub-row-bg:rgba(96,165,250,.06);--sub-row-border:rgba(96,165,250,.12);
-  --sub-row-bg-hover:rgba(96,165,250,.12);--sub-row-border-hover:rgba(96,165,250,.35);
-  --sub-row-glow:rgba(14,165,233,.45);
-}
-.subscription-page.is-dark.is-ultra{
-  --bg-page:radial-gradient(ellipse 120% 90% at 18% -10%,#071a33 0%,#05070c 55%,#000 100%);
-  --sub-card-shadow:0 1px 3px rgba(0,0,0,.6),0 24px 64px rgba(3,105,161,.3);
-  --sub-blob-1:rgba(14,165,233,.2);--sub-blob-2:rgba(34,211,238,.14);
-}
-/* antd's own tokens, so buttons, tabs, links and progress read blue too */
-.subscription-page,.subscription-page *{
+  --bg-page:#e8f1fb;--bg-card:#ffffff;
   --ant-color-primary:#0ea5e9!important;
   --ant-color-primary-hover:#38bdf8!important;
   --ant-color-primary-active:#0284c7!important;
@@ -97,7 +62,8 @@ BLUE_CSS = """
   --ant-color-link:#0284c7!important;
   --ant-color-info:#0ea5e9!important;
 }
-.subscription-page.is-dark,.subscription-page.is-dark *{
+.subscription-page.is-dark{
+  --bg-page:#0f1722;--bg-card:#161f2c;
   --ant-color-primary:#38bdf8!important;
   --ant-color-primary-hover:#7dd3fc!important;
   --ant-color-primary-active:#0ea5e9!important;
@@ -106,27 +72,28 @@ BLUE_CSS = """
   --ant-color-link:#7dd3fc!important;
   --ant-color-info:#38bdf8!important;
 }
-/* antd keeps a second, per-component set of variables for tabs and progress --
-   they are computed from the theme's own primary, so overriding
-   --ant-color-primary alone leaves the active tab violet. */
-.subscription-page, .subscription-page *{
+.subscription-page.is-dark.is-ultra{
+  --bg-page:#04080d;--bg-card:#0d141d;
+  --ant-color-primary:#38bdf8!important;
+  --ant-color-primary-hover:#7dd3fc!important;
+  --ant-color-link:#7dd3fc!important;
+}
+/* antd keeps a second set of variables per component, computed from the
+   theme's own primary -- overriding --ant-color-primary alone leaves the
+   active tab and the progress rail behind. */
+.subscription-page,.subscription-page *{
   --ant-tabs-item-selected-color:#0284c7!important;
   --ant-tabs-ink-bar-color:#0284c7!important;
   --ant-tabs-item-hover-color:#0ea5e9!important;
   --ant-tabs-item-active-color:#0369a1!important;
   --ant-progress-remaining-color:rgba(14,165,233,.16)!important;
 }
-.subscription-page.is-dark, .subscription-page.is-dark *{
+.subscription-page.is-dark,.subscription-page.is-dark *{
   --ant-tabs-item-selected-color:#38bdf8!important;
   --ant-tabs-ink-bar-color:#38bdf8!important;
   --ant-tabs-item-hover-color:#7dd3fc!important;
   --ant-tabs-item-active-color:#0ea5e9!important;
   --ant-progress-remaining-color:rgba(56,189,248,.2)!important;
-}
-.subscription-page.is-dark.is-ultra,.subscription-page.is-dark.is-ultra *{
-  --ant-color-primary:#38bdf8!important;
-  --ant-color-primary-hover:#7dd3fc!important;
-  --ant-color-link:#7dd3fc!important;
 }
 """
 
