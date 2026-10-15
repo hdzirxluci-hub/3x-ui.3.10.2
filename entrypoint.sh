@@ -84,13 +84,11 @@ export TRANSPORT CLIENT_EMAIL CLIENT_SUBID
 # variable there is an "unbound variable" error, not a silent empty string.
 export BRAND BOLD_BRAND REMARK_TEMPLATE
 
-# The public hostname is what every generated link contains, and it comes from
-# the platform: Railway injects RAILWAY_PUBLIC_DOMAIN once a domain exists, and
-# that one cannot be wrong. The platform value therefore wins outright -- a stale
-# address from anywhere else is how configs end up looking fine and never
-# connecting. PUBLIC_HOST only still answers for a container that is not on
-# Railway at all.
-PUBLIC_HOST="${RAILWAY_PUBLIC_DOMAIN:-${PUBLIC_HOST:-}}"
+# The public hostname is what every generated link contains. It comes from the
+# platform and nowhere else: Railway injects RAILWAY_PUBLIC_DOMAIN once a domain
+# exists, and that value cannot be wrong. Reading it from a variable someone
+# typed is how links end up pointing at an address that never answers.
+PUBLIC_HOST="${RAILWAY_PUBLIC_DOMAIN:-}"
 PUBLIC_PORT=443
 PUBLIC_TLS=tls
 export PUBLIC_HOST PUBLIC_PORT PUBLIC_TLS
@@ -153,9 +151,13 @@ TUNNEL_PATH=/ws           # public path nginx exposes; also the internal path
 CLIENT_EMAIL=user1
 CLIENT_SUBID=PABLO
 INBOUND_REMARK="$BRAND"
-# Exported by the entrypoint when, and only when, both were set in Railway.
+# Exported by the entrypoint: on the first boot this is the seeded admin/admin,
+# which is the only boot on which this script can log in at all -- once the
+# database exists the stored password is a bcrypt hash and there is nothing to
+# authenticate with.
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin}"
+
 BOOTSTRAP_TIMEOUT=90
 
 BASE="http://127.0.0.1:${PANEL_PORT}${PANEL_PATH}"
@@ -171,8 +173,8 @@ die()  { printf '[bootstrap] ERROR: %s\n' "$*" >&2; return 1; }
 # nothing to log in with. The inbound already exists from the first boot, so
 # leaving it untouched is the correct no-op.
 if [ "${APPLY_CREDS:-1}" = "0" ]; then
-  log "credentials come from the panel database; skipping inbound bootstrap"
-  log "to re-bootstrap the inbound, set ADMIN_PASSWORD in Railway Variables and redeploy"
+  log "credentials live in the panel database; skipping the inbound bootstrap"
+  log "the public address is handled separately, without logging in"
   exit 0
 fi
 
@@ -398,29 +400,24 @@ mkdir -p /etc/x-ui /var/log/x-ui
 # password you changed from the panel UI -- the CLI overwrites the database
 # unconditionally. So:
 #
-#   * no database yet (first boot, empty Volume): seed admin/admin so the
-#     service is usable with zero Variables.
-#   * database exists: leave the credentials alone, so what you set in
-#     Panel Settings survives restarts and redeploys.
-#   * ADMIN_PASSWORD set explicitly in Railway Variables: still wins on every
-#     boot, which is the way back in if you ever lock yourself out.
+#   * no database yet (first boot, empty Volume): seed admin/admin, so the whole
+#     service comes up with nothing configured anywhere.
+#   * database exists: leave the credentials alone, so the password you set in
+#     Panel Settings survives every restart and redeploy.
+#
+# There is deliberately no way in through the environment. Nothing about this
+# panel is configurable from outside the panel, which also means there is no
+# variable anyone could set to take it over.
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin
 if [ -f "$DB_FILE" ]; then
-  if [ -n "${ADMIN_USERNAME:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ]; then
-    APPLY_CREDS=1
-    CREDS_NOTE="from Railway Variables"
-  else
-    APPLY_CREDS=0
-    ADMIN_USERNAME="$(read_credential username)"
-    ADMIN_PASSWORD="$(read_credential password)"
-    CREDS_NOTE="kept from the panel database"
-  fi
+  APPLY_CREDS=0
+  ADMIN_USERNAME="$(read_credential username)"
+  ADMIN_PASSWORD="$(read_credential password)"
+  CREDS_NOTE="kept from the panel database"
 else
-  ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
-  ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin}"
   APPLY_CREDS=1
-  if [ "$ADMIN_USERNAME" = admin ] && [ "$ADMIN_PASSWORD" = admin ]; then
-    DEFAULT_CREDS=1
-  fi
+  DEFAULT_CREDS=1
   CREDS_NOTE="seeded on first boot"
 fi
 export ADMIN_USERNAME ADMIN_PASSWORD APPLY_CREDS
@@ -554,11 +551,10 @@ except Exception as e:
 PUBADDR_PY
 fi
 
-# Existing deployments carry the old default name. Bootstrap only runs when
-# credentials are being applied, so anyone who changed their password in the
-# panel and dropped ADMIN_PASSWORD from Variables would never get the rename --
-# their inbound would keep the old label for ever. So rename it here instead,
-# unconditionally and idempotently, before the panel reads the table.
+# Existing deployments carry the old default name. The bootstrap below can only
+# log in on the very first boot, so a panel that has been running for a while
+# would keep the old label for ever. So rename it here instead, right in the
+# database, unconditionally and idempotently, before the panel reads the table.
 #
 # Only a stored value that is exactly the old default is touched. A name you
 # typed yourself in the panel is yours and survives every restart.
