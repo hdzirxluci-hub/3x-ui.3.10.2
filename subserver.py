@@ -1,24 +1,30 @@
 #!/usr/bin/env python3
 """A thin forwarder in front of 3x-ui's own subscription server.
 
-The page a browser gets is 3x-ui's built-in subpage.html, untouched -- its own
-title, its own layout, its own assets. This process does not render anything.
-It exists to apply exactly one policy that the sub server itself cannot:
+The page a browser gets is 3x-ui's built-in subpage.html -- its own title, layout
+and assets. The forwarder adds the blue accent and owns two edge-only policies
+that the panel cannot know by itself:
 
-3x-ui always emits a Subscription-Userinfo header, filling 0 for any limit the
-client does not have (internal/sub/calendar_expire.go formats it straight from
-the client_traffic row), so a client with no cap arrives as
-"upload=0; download=0; total=0; expire=0". Apps such as v2box divide usage by
-total, hit zero, and report an error even though the configs came through fine.
-So the header is forwarded only when it carries something to report.
+* nginx supplies the hostname of a real public request to an internal endpoint.
+  It is persisted as https://<host>/sub/ and as the managed inbound's :443/TLS
+  subscription address, so 3x-ui never publishes its loopback :2096 or :10085.
+* 3x-ui always emits a Subscription-Userinfo header, filling 0 for any limit the
+  client does not have. Apps such as v2box divide usage by total, hit zero and
+  report an error even though the configs arrived, so the header is forwarded
+  only when it carries something meaningful to chart.
 
 Everything else -- status, content type, body, and every other header such as
 Profile-Title and Profile-Update-Interval -- passes through as-is.
 """
 
+import ipaddress
+import json
 import os
 import re
+import sqlite3
 import sys
+import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -29,6 +35,148 @@ SUB_PORT = int(os.environ.get("SUB_PORT", "2096"))
 SUB_REAL_PATH = os.environ.get("SUB_REAL_PATH", "/subs/")
 PUBLIC_PATH = os.environ.get("SUB_PATH", "/sub/")
 DEFAULT_SUBID = os.environ.get("CLIENT_SUBID", "PABLO")
+DB_FILE = os.environ.get("DB_FILE", "/etc/x-ui/x-ui.db")
+INBOUND_PORT = int(os.environ.get("INBOUND_PORT", "10085"))
+PUBLIC_PORT = int(os.environ.get("PUBLIC_PORT", "443"))
+PUBLIC_TLS = os.environ.get("PUBLIC_TLS", "tls")
+BRAND = os.environ.get("BRAND", "PABLO")
+SYNC_PATH = "/__pablo_sync_host"
+_SYNC_LOCK = threading.Lock()
+_SYNCED_HOST = None
+_SYNCED_AT = 0.0
+SYNC_TTL = 5.0
+
+
+def normalize_public_host(value):
+    """Return a safe DNS hostname from the edge's Host header, or None.
+
+    The synchronization endpoint is nginx-internal, but the original Host still
+    came from a request. Refuse IPs, local names and malformed labels so one bad
+    header can never be persisted into links handed to every subscriber.
+    """
+    value = (value or "").strip()
+    if not value or any(ch in value for ch in "/\\@?#"):
+        return None
+    try:
+        host = urllib.parse.urlsplit("//" + value).hostname
+    except ValueError:
+        return None
+    if not host:
+        return None
+    host = host.rstrip(".").lower()
+    try:
+        ipaddress.ip_address(host)
+        return None
+    except ValueError:
+        pass
+    if host == "localhost" or "." not in host or len(host) > 253:
+        return None
+    labels = host.split(".")
+    if any(not label or len(label) > 63 or
+           not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label)
+           for label in labels):
+        return None
+    return host
+
+
+def sync_public_host(host):
+    """Make the panel's public subscription endpoint match this request.
+
+    Railway exposes only HTTPS on its edge. The panel's own fallback points at
+    its loopback subscription port (:2096), while a new host row can carry the
+    inbound's internal :10085 and security=none. Both links look plausible in
+    the UI but are unreachable from a phone. The first real request supplies
+    the one piece of information unavailable at image build time -- its public
+    hostname -- so persist the complete edge endpoint before proxying onward.
+    """
+    global _SYNCED_HOST, _SYNCED_AT
+    now = time.monotonic()
+    if not host or (_SYNCED_HOST == host and now - _SYNCED_AT < SYNC_TTL):
+        return False
+
+    with _SYNC_LOCK:
+        now = time.monotonic()
+        if _SYNCED_HOST == host and now - _SYNCED_AT < SYNC_TTL:
+            return False
+
+        want_sub = "https://%s%s" % (host, PUBLIC_PATH)
+        entry = {"forceTls": PUBLIC_TLS, "dest": host, "port": PUBLIC_PORT,
+                 "remark": BRAND, "sni": host}
+        con = sqlite3.connect(DB_FILE, timeout=10)
+        changed = 0
+        try:
+            row = con.execute(
+                "SELECT value FROM settings WHERE key='subURI'").fetchone()
+            if not row:
+                con.execute(
+                    "INSERT INTO settings(key,value) VALUES('subURI',?)",
+                    (want_sub,))
+                changed += 1
+            elif row[0] != want_sub:
+                con.execute(
+                    "UPDATE settings SET value=? WHERE key='subURI'",
+                    (want_sub,))
+                changed += 1
+
+            inbound_ids = []
+            for iid, raw in con.execute(
+                    "SELECT id, stream_settings FROM inbounds WHERE port=?",
+                    (INBOUND_PORT,)):
+                inbound_ids.append(iid)
+                try:
+                    obj = json.loads(raw)
+                except Exception:
+                    continue
+                proxies = obj.get("externalProxy") or []
+                # An empty row is this project's untouched default. Once set,
+                # update only its own PABLO entry and never replace an address
+                # somebody created by hand for a CDN or another public route.
+                if not proxies:
+                    obj["externalProxy"] = [entry]
+                elif any(isinstance(p, dict) and p.get("remark") == BRAND
+                         for p in proxies):
+                    obj["externalProxy"] = [
+                        entry if isinstance(p, dict) and p.get("remark") == BRAND
+                        else p for p in proxies
+                    ]
+                else:
+                    continue
+                cooked = json.dumps(obj, ensure_ascii=False)
+                if cooked != raw:
+                    con.execute(
+                        "UPDATE inbounds SET stream_settings=? WHERE id=?",
+                        (cooked, iid))
+                    changed += 1
+
+            for iid in inbound_ids:
+                for hid, address, port, security, sni in con.execute(
+                        "SELECT id,address,port,security,sni FROM hosts "
+                        "WHERE inbound_id=?", (iid,)):
+                    try:
+                        port = int(port)
+                    except (TypeError, ValueError):
+                        pass
+                    if (address, port, security, sni) == (
+                            host, PUBLIC_PORT, PUBLIC_TLS, host):
+                        continue
+                    con.execute(
+                        "UPDATE hosts SET address=?,sni=?,port=?,security=? "
+                        "WHERE id=?",
+                        (host, host, PUBLIC_PORT, PUBLIC_TLS, hid))
+                    changed += 1
+
+            con.commit()
+            _SYNCED_HOST = host
+            _SYNCED_AT = time.monotonic()
+        finally:
+            con.close()
+
+        if changed:
+            sys.stderr.write(
+                "[subfwd] public endpoint synchronized to https://%s "
+                "(%d database change(s))\n" % (host, changed))
+        return bool(changed)
+
 
 # User agents that are plainly a browser. Used only to decide whether to ask
 # for the HTML page when Accept is too vague to tell.
@@ -161,6 +309,20 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         sys.stderr.write("[subfwd] %s\n" % (fmt % args))
 
+    def _sync_host(self):
+        # nginx marks this route internal and supplies its normalized $host.
+        # Fail open: a transient SQLite lock must never make the panel itself
+        # unavailable; the next request retries because the cache was not set.
+        host = normalize_public_host(self.headers.get("X-Public-Host"))
+        try:
+            if host:
+                sync_public_host(host)
+        except Exception as e:  # noqa: BLE001 - log and retry next request
+            sys.stderr.write("[subfwd] public endpoint sync failed: %s\n" % e)
+        self.send_response(204)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def _relay(self, method):
         parsed = urllib.parse.urlparse(self.path)
         target = "http://127.0.0.1:%d%s" % (
@@ -244,9 +406,15 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(payload)
 
     def do_GET(self):  # noqa: N802
+        if urllib.parse.urlparse(self.path).path == SYNC_PATH:
+            self._sync_host()
+            return
         self._relay("GET")
 
     def do_HEAD(self):  # noqa: N802
+        if urllib.parse.urlparse(self.path).path == SYNC_PATH:
+            self._sync_host()
+            return
         self._relay("HEAD")
 
 

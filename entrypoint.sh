@@ -339,8 +339,8 @@ log "panel subscription path is ${SUB_REAL_PATH}"
 # page from subDomain and subPort, which gives
 # http://<domain>:2096<subPath><subId>. Railway exposes exactly one public port
 # over HTTPS, so that link can never be reached from a browser or an app.
-# subURI overrides it. Only fill in the broken defaults -- a custom domain the
-# admin typed by hand is left alone.
+# subURI overrides it. Keep this service's one stable public route here; the
+# internal random path and :2096 are implementation details, never public URLs.
 if [ -n "$PUBLIC_HOST" ]; then
   python3 - "$PUBLIC_HOST" "$SUB_PATH" <<'PY'
 import sqlite3, sys
@@ -351,9 +351,7 @@ try:
     con = sqlite3.connect(db)
     row = con.execute("SELECT value FROM settings WHERE key='subURI'").fetchone()
     cur = row[0] if row else ""
-    if cur and ":2096" not in cur and not cur.startswith("http://"):
-        print(f"[bootstrap] subURI already set to {cur}; leaving it alone")
-    else:
+    if cur != want:
         if row:
             con.execute("UPDATE settings SET value=? WHERE key='subURI'", (want,))
         else:
@@ -546,10 +544,18 @@ try:
     moved = 0
     if ids:
         placeholders = ",".join("?" * len(ids))
-        for hid, addr in con.execute(
-                f"SELECT id, address FROM hosts WHERE inbound_id IN ({placeholders})",
-                ids):
-            if not addr or addr == host:
+        for hid, addr, hport, security, sni in con.execute(
+                f"SELECT id, address, port, security, sni FROM hosts "
+                f"WHERE inbound_id IN ({placeholders})", ids):
+            # The address can already be right while the row still carries the
+            # internal inbound port and security=none. Comparing only address
+            # leaves exactly that broken link behind, so verify the complete
+            # public endpoint before deciding this row is already finished.
+            try:
+                hport = int(hport)
+            except (TypeError, ValueError):
+                pass
+            if (addr, hport, security, sni) == (host, port, force_tls, host):
                 continue
             con.execute("UPDATE hosts SET address=?, sni=?, port=?, security=? "
                         "WHERE id=?", (host, host, port, force_tls, hid))
@@ -559,9 +565,10 @@ try:
 
     row = con.execute("SELECT value FROM settings WHERE key='subURI'").fetchone()
     cur = row[0] if row else ""
-    if cur and ":2096" not in cur and not cur.startswith("http://"):
-        print(f"[entrypoint] subURI already set to {cur}; leaving it alone")
-    elif cur != sub_uri:
+    # This service has one deliberately stable public subscription route. Do
+    # not let Panel Settings silently fall back to http://host:2096/random/ or
+    # retain the previous Railway domain: both are dead from the public edge.
+    if cur != sub_uri:
         if row:
             con.execute("UPDATE settings SET value=? WHERE key='subURI'", (sub_uri,))
         else:
@@ -753,9 +760,21 @@ if [ -f /opt/subserver.py ]; then
   SUB_REAL_PATH="$SUB_REAL_PATH" \
   SUB_PATH="$SUB_PATH" \
   CLIENT_SUBID="$CLIENT_SUBID" \
+  DB_FILE="$DB_FILE" \
+  INBOUND_PORT="$INBOUND_PORT" \
+  PUBLIC_PORT="$PUBLIC_PORT" \
+  PUBLIC_TLS="$PUBLIC_TLS" \
+  BRAND="$BRAND" \
     python3 /opt/subserver.py &
   SUBPAGE_PID=$!
   log "subscription page started (pid ${SUBPAGE_PID}) on :${SUBPAGE_PORT}"
+  # nginx's auth subrequest depends on this local listener. Wait for it rather
+  # than letting the first phone request race Python's socket bind.
+  for _ in $(seq 1 30); do
+    curl -fsS -o /dev/null --max-time 1 \
+      "http://127.0.0.1:${SUBPAGE_PORT}/__pablo_sync_host" && break
+    sleep 0.2
+  done
 fi
 
 nginx -t -c "$RENDERED" || { log "FATAL: rendered nginx config is invalid"; exit 1; }
@@ -834,7 +853,9 @@ while true; do
     log "subscription page exited; restarting it"
     SUBPAGE_PORT="$SUBPAGE_PORT" SUB_PORT="$SUB_PORT" \
     SUB_REAL_PATH="$SUB_REAL_PATH" SUB_PATH="$SUB_PATH" \
-    CLIENT_SUBID="$CLIENT_SUBID" \
+    CLIENT_SUBID="$CLIENT_SUBID" DB_FILE="$DB_FILE" \
+    INBOUND_PORT="$INBOUND_PORT" PUBLIC_PORT="$PUBLIC_PORT" \
+    PUBLIC_TLS="$PUBLIC_TLS" BRAND="$BRAND" \
       python3 /opt/subserver.py &
     SUBPAGE_PID=$!
   fi

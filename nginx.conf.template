@@ -48,9 +48,23 @@ http {
             return 200 "ok\n";
         }
 
+        # A real browser request is the most reliable source of this service's
+        # public hostname. Before the panel or subscription answers, hand that
+        # hostname to the local sidecar; it writes https://<host>/sub/ and the
+        # public :443/TLS endpoint into 3x-ui's database. This is internal-only,
+        # carries no request body and returns 204.
+        location = /__pablo_sync_host {
+            internal;
+            proxy_pass http://127.0.0.1:@@SUBPAGE_PORT@@/__pablo_sync_host;
+            proxy_pass_request_body off;
+            proxy_set_header Content-Length "";
+            proxy_set_header X-Public-Host $host;
+        }
+
         # --- Panel ------------------------------------------------------------
         # URI is passed through untouched on purpose (see the note above).
         location @@PANEL_PATH@@ {
+            auth_request /__pablo_sync_host;
             proxy_pass http://127.0.0.1:@@PANEL_PORT@@;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
@@ -99,6 +113,7 @@ http {
         # what curl gets -- a static JS page could not be verified that way and
         # shipped blank once.
         location = @@SUB_PATH_NOSLASH@@ {
+            auth_request /__pablo_sync_host;
             proxy_pass http://127.0.0.1:@@SUBPAGE_PORT@@;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
@@ -106,6 +121,7 @@ http {
         }
 
         location @@SUB_PATH@@ {
+            auth_request /__pablo_sync_host;
             # Bare /sub/ -> the viewer.
             rewrite ^@@SUB_PATH@@$ @@SUB_PATH_NOSLASH@@ last;
             # Drop a trailing slash. Chrome appends one on its own, so
@@ -131,6 +147,7 @@ http {
         # Without this rule every one of those requests falls into "location /"
         # and 404s, and the page renders as an empty white screen.
         location @@SUB_REAL_PATH@@ {
+            auth_request /__pablo_sync_host;
             proxy_pass http://127.0.0.1:@@SUB_PORT@@;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
