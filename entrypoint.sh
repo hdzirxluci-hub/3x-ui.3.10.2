@@ -487,6 +487,73 @@ except Exception as e:
     print(f"[entrypoint] WARNING: could not set the subscription page text: {e}")
 PY
 
+# The address every generated config points at. This is the one setting that has
+# to be right or nothing connects at all: left alone, links carry the *internal*
+# port of the inbound and no TLS, which is unreachable from outside.
+#
+# Two ways it gets written. The bootstrap below sets it through the panel API,
+# but the bootstrap can only log in when the credentials are known, and on a
+# redeploy where they come from the database it steps aside. That is exactly the
+# boot on which the address becomes known, because Railway injects
+# RAILWAY_PUBLIC_DOMAIN only *after* a domain exists -- so the deploy that gives
+# the panel its name is the one that would otherwise leave the inbound pointing
+# at an address nothing answers on. Written straight into the database instead,
+# which needs no login.
+#
+# Idempotent, and it only touches its own entry: an address configured by hand in
+# the panel (a different domain, a CDN) is left exactly as it is.
+if [ -n "$PUBLIC_HOST" ]; then
+  python3 - "$PUBLIC_HOST" "$PUBLIC_PORT" "$PUBLIC_TLS" "$INBOUND_PORT" \
+           "$BRAND" "$SUB_PATH" <<'PUBADDR_PY'
+import json, sqlite3, sys
+host, port, force_tls = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+in_port, remark, sub_path = int(sys.argv[4]), sys.argv[5], sys.argv[6]
+
+# externalProxy is the row that rewrites the address, port and TLS in every
+# generated link and in the subscription.
+entry = {"forceTls": force_tls, "dest": host, "port": port,
+         "remark": remark, "sni": host}
+# subURI is what the panel builds the link on its Clients page from. Left empty it
+# reads http://<domain>:2096/..., a port Railway does not expose.
+sub_uri = f"https://{host}{sub_path}"
+
+try:
+    con = sqlite3.connect("/etc/x-ui/x-ui.db")
+    for iid, ss in con.execute(
+            "SELECT id, stream_settings FROM inbounds WHERE port=?", (in_port,)):
+        try:
+            obj = json.loads(ss)
+        except Exception:
+            continue
+        proxies = obj.get("externalProxy") or []
+        if proxies and not any(isinstance(p, dict) and p.get("remark") == remark
+                               for p in proxies):
+            print(f"[entrypoint] inbound {iid} has an address set by hand; "
+                  f"leaving it alone")
+            continue
+        if proxies == [entry]:
+            continue
+        obj["externalProxy"] = [entry]
+        con.execute("UPDATE inbounds SET stream_settings=? WHERE id=?",
+                    (json.dumps(obj, ensure_ascii=False), iid))
+        print(f"[entrypoint] inbound {iid} now answers on {host}:{port} ({force_tls})")
+
+    row = con.execute("SELECT value FROM settings WHERE key='subURI'").fetchone()
+    cur = row[0] if row else ""
+    if cur and ":2096" not in cur and not cur.startswith("http://"):
+        print(f"[entrypoint] subURI already set to {cur}; leaving it alone")
+    elif cur != sub_uri:
+        if row:
+            con.execute("UPDATE settings SET value=? WHERE key='subURI'", (sub_uri,))
+        else:
+            con.execute("INSERT INTO settings(key,value) VALUES('subURI',?)", (sub_uri,))
+        print(f"[entrypoint] subURI set to {sub_uri}")
+    con.commit()
+except Exception as e:
+    print(f"[entrypoint] WARNING: could not set the public address: {e}")
+PUBADDR_PY
+fi
+
 # Existing deployments carry the old default name. Bootstrap only runs when
 # credentials are being applied, so anyone who changed their password in the
 # panel and dropped ADMIN_PASSWORD from Variables would never get the rename --
@@ -681,7 +748,8 @@ for _ in $(seq 1 10); do
   curl -fsS -o /dev/null --max-time 2 "http://127.0.0.1:${HTTP_PORT}/healthz" && break
   sleep 1
 done
-log "nginx listening on :${HTTP_PORT}"
+log "nginx listening on :${HTTP_PORT} inside the container"
+log "the panel is reached at https://${PUBLIC_HOST:-<your-domain>}/panel/ -- no port on the end"
 
 # --- report ------------------------------------------------------------------
 HOST_FOR_LINKS="${PUBLIC_HOST:-<your-domain>}"
