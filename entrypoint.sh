@@ -53,13 +53,19 @@ CLIENT_EMAIL="${CLIENT_EMAIL:-user1}"
 CLIENT_SUBID="${CLIENT_SUBID:-PABLO}"
 SUBPAGE_PORT="${SUBPAGE_PORT:-2097}"
 BRAND="${BRAND:-PABLO}"
-# Names the configs exactly as they show up in the client app. {{EMAIL}} is the
-# per-user email typed in the panel, so every client gets its own line.
-REMARK_TEMPLATE="${REMARK_TEMPLATE:-${BRAND} • {{EMAIL}}}"
+# The name every config carries in the client app, in the bold face the brand
+# uses. {{EMAIL}} is the name typed in the panel for that client, so one person's
+# configs read 𝗣𝗔𝗕𝗟𝗢 | <their name> and the next person's read 𝗣𝗔𝗕𝗟𝗢 | <theirs>.
+# Held as a literal because the bold face is characters, not a font.
+BOLD_BRAND="𝗣𝗔𝗕𝗟𝗢"
+REMARK_TEMPLATE="${REMARK_TEMPLATE:-${BOLD_BRAND} | {{EMAIL}}}"
+# What this project named configs before the separator changed, so a deployment
+# made with an earlier release is renamed too instead of keeping the old one.
+REMARK_LEGACY="${BRAND} • {{EMAIL}}"
 # The built-in subscription page has two slots of its own: a title rendered at
 # the top of the card, and an "announce" box rendered below it. Both are plain
 # panel settings, so the branding lives there rather than in a custom page.
-SUB_TITLE="${SUB_TITLE:-$BRAND}"
+SUB_TITLE="${SUB_TITLE:-$BOLD_BRAND}"
 SUB_ANNOUNCE="${SUB_ANNOUNCE:-این پنل توسط Pablo ساخته شده}"
 # subSupportUrl is the one field the built-in page puts in its <footer>, so it
 # is the slot at the very bottom of the subscription page.
@@ -84,7 +90,7 @@ esac
   # BRAND is read inside bootstrap.sh (the inbound gets named after it), and
   # bootstrap.sh runs under `set -u`, so it has to be exported -- an unexported
   # variable there is an "unbound variable" error, not a silent empty string.
-  export BRAND REMARK_TEMPLATE
+  export BRAND BOLD_BRAND REMARK_TEMPLATE
   export PANEL_PORT INBOUND_PORT
 
 # The public hostname is what every generated link contains. Railway only
@@ -438,14 +444,14 @@ fi
 # stored value is still the upstream default or empty, so a template someone
 # tuned by hand in Panel Settings is not clobbered on every restart.
 REMARK_DEFAULT='{{INBOUND}}-{{EMAIL}}|📊{{TRAFFIC_LEFT}}|⏳{{DAYS_LEFT}}D'
-python3 - "$REMARK_TEMPLATE" "$REMARK_DEFAULT" <<'PY'
+python3 - "$REMARK_TEMPLATE" "$REMARK_DEFAULT" "$REMARK_LEGACY" <<'PY'
 import sqlite3, sys
-want, upstream = sys.argv[1], sys.argv[2]
+want, upstream, legacy = sys.argv[1], sys.argv[2], sys.argv[3]
 try:
     con = sqlite3.connect("/etc/x-ui/x-ui.db")
     row = con.execute("SELECT value FROM settings WHERE key='remarkTemplate'").fetchone()
     cur = row[0] if row else ""
-    if cur and cur != upstream:
+    if cur and cur not in (upstream, legacy):
         print(f"[entrypoint] remarkTemplate already customised; leaving {cur!r}")
     else:
         if row:
@@ -462,16 +468,19 @@ PY
 # the title at the top of the card and the announce box under it. Same rule as
 # remarkTemplate -- write them when unset or still empty, never over something
 # you typed into Panel Settings yourself.
-python3 - "$SUB_TITLE" "$SUB_ANNOUNCE" "$SUB_SUPPORT_URL" <<'PY'
+python3 - "$SUB_TITLE" "$SUB_ANNOUNCE" "$SUB_SUPPORT_URL" "$BRAND" <<'PY'
 import sqlite3, sys
 values = {"subTitle": sys.argv[1], "subAnnounce": sys.argv[2],
           "subSupportUrl": sys.argv[3]}
+# The plain name this project wrote before is ours to replace; anything else in
+# the slot was typed in Panel Settings and is left alone.
+legacy = {"subTitle": {sys.argv[4]}}
 try:
     con = sqlite3.connect("/etc/x-ui/x-ui.db")
     for key, want in values.items():
         row = con.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
         cur = row[0] if row else ""
-        if cur:
+        if cur and cur not in legacy.get(key, ()):
             print(f"[entrypoint] {key} already set; leaving {cur!r}")
             continue
         if row:
