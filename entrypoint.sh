@@ -85,9 +85,12 @@ export TRANSPORT CLIENT_EMAIL CLIENT_SUBID
 export BRAND BOLD_BRAND REMARK_TEMPLATE
 
 # The public hostname is what every generated link contains, and it comes from
-# the platform: Railway injects RAILWAY_PUBLIC_DOMAIN once a domain exists.
-# Nothing to set here.
-PUBLIC_HOST="${PUBLIC_HOST:-${RAILWAY_PUBLIC_DOMAIN:-}}"
+# the platform: Railway injects RAILWAY_PUBLIC_DOMAIN once a domain exists, and
+# that one cannot be wrong. The platform value therefore wins outright -- a stale
+# address from anywhere else is how configs end up looking fine and never
+# connecting. PUBLIC_HOST only still answers for a container that is not on
+# Railway at all.
+PUBLIC_HOST="${RAILWAY_PUBLIC_DOMAIN:-${PUBLIC_HOST:-}}"
 PUBLIC_PORT=443
 PUBLIC_TLS=tls
 export PUBLIC_HOST PUBLIC_PORT PUBLIC_TLS
