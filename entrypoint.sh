@@ -68,13 +68,12 @@ REMARK_TEMPLATE="${BOLD_BRAND} | {{EMAIL}}"
 # What this project named configs before the separator changed, so a deployment
 # made with an earlier release is renamed too instead of keeping the old one.
 REMARK_LEGACY="${BRAND} • {{EMAIL}}"
-# The built-in subscription page has two slots of its own: a title rendered at
-# the top of the card, and an "announce" box rendered below it. Both are plain
-# panel settings, so the branding lives there rather than in a custom page.
+# Keep 3x-ui's subscription metadata branded too. The custom PABLO page reads
+# the announcement, while the title/support values also cover raw-client headers
+# and 3x-ui's built-in page if the renderer ever has to fall back to it.
 SUB_TITLE="$BOLD_BRAND"
 SUB_ANNOUNCE="این پنل توسط Pablo ساخته شده"
-# subSupportUrl is the one field the built-in page puts in its <footer>, so it
-# is the slot at the very bottom of the subscription page.
+# Keep the same PABLO support address in 3x-ui's response metadata.
 SUB_SUPPORT_URL="t.me/poll_o0"
 
 export PANEL_PATH SUB_PATH TUNNEL_PATH HTTP_PORT PANEL_PORT SUB_PORT INBOUND_PORT
@@ -453,10 +452,9 @@ except Exception as e:
     print(f"[entrypoint] WARNING: could not set remarkTemplate: {e}")
 PY
 
-# subTitle and subAnnounce are the two slots on 3x-ui's own subscription page:
-# the title at the top of the card and the announce box under it. Same rule as
-# remarkTemplate -- write them when unset or still empty, never over something
-# you typed into Panel Settings yourself.
+# These values feed both 3x-ui's subscription headers/fallback page and the
+# custom PABLO page announcement. Same rule as remarkTemplate: write them only
+# when unset, never over something typed in Panel Settings.
 python3 - "$SUB_TITLE" "$SUB_ANNOUNCE" "$SUB_SUPPORT_URL" "$BRAND" <<'PY'
 import sqlite3, sys
 values = {"subTitle": sys.argv[1], "subAnnounce": sys.argv[2],
@@ -736,9 +734,9 @@ if [ -n "${DEFAULT_CREDS:-}" ]; then
   echo "     sticks across restarts, nothing here overwrites it."
 fi
 echo "  Subscription   ${SUB_URL}"
-echo "                 ^ Open it in a browser: 3x-ui's own subscription page."
+echo "                 ^ Open it in a browser: PABLO's PasarGuard subscription page."
 echo "                   Paste it into a VPN app: the same address hands the"
-echo "                   app the raw feed. The panel decides by who is asking."
+echo "                   app 3x-ui's raw feed. The sidecar decides by who is asking."
 echo "                   Title: ${SUB_TITLE}"
 echo "                 ^ give every new client subId \"${CLIENT_SUBID}\" and it"
 echo "                   appears in this same link automatically. No new link,"

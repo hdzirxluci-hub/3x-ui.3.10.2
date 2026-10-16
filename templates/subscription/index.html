@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex,nofollow">
+<meta name="format-detection" content="telephone=no">
+<title>𝗣𝗔𝗕𝗟𝗢 — اشتراک اختصاصی</title>
+{# ---------------------------------------------------------------------------
+   Everything on this page is inline: no fonts, no images, no scripts, no
+   stylesheets from anywhere else. The only request it makes goes back to this
+   same server. Anything loaded from outside would tell a third party that this
+   page was opened, and would go blank behind a blocking proxy -- exactly when
+   the page matters most.
+   --------------------------------------------------------------------------- #}
+{% set BRAND   = "PABLO" %}
+{% set BOLD    = "𝗣𝗔𝗕𝗟𝗢" %}
+{% set TAGLINE = "اشتراک اختصاصی" %}
+{% set SUPPORT = "https://t.me/poll_o0" %}
+{% set CHANNEL = "https://t.me/pablo_artor" %}
+<style>
+:root{
+  --bg:#08070f;
+  --ink:#f3f1fb;
+  --dim:#9a94b5;
+  --faint:#6c6684;
+  --line:rgba(255,255,255,.08);
+  --fill:rgba(255,255,255,.04);
+  --cyan:#22d3ee;
+  --blue:#2563eb;
+  --sky:#38bdf8;
+  --ok:#34d399;
+  --warn:#fbbf24;
+  --bad:#fb7185;
+  --tg1:#2aabee;
+  --tg2:#229ed9;
+  --ease:cubic-bezier(.2,.75,.3,1);
+  --r:18px;
+  --gap:13px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+html,body{margin:0;padding:0;width:100%;max-width:100%}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI","Segoe UI Symbol",Tahoma,
+              "Noto Naskh Arabic","Noto Sans Symbols 2","DejaVu Sans",sans-serif;
+  font-size:15px;line-height:1.7;
+  overflow-x:hidden;
+  padding-bottom:calc(84px + env(safe-area-inset-bottom));
+  -webkit-font-smoothing:antialiased;
+}
+img,svg{max-width:100%}
+.bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(46% 34% at 92% 0%, rgba(56,189,248,.20), transparent 62%),
+    radial-gradient(42% 32% at 0% 6%, rgba(34,211,238,.14), transparent 60%),
+    radial-gradient(60% 40% at 50% 104%, rgba(37,99,235,.20), transparent 66%)}
+.bg::after{content:"";position:absolute;inset:0;opacity:.45;
+  background-image:radial-gradient(rgba(255,255,255,.03) 1px, transparent 1px);
+  background-size:3px 3px}
+
+/* ---------- top bar ---------- */
+.bar{position:sticky;top:0;z-index:30;width:100%;
+  padding:calc(9px + env(safe-area-inset-top)) 14px 9px;
+  background:linear-gradient(180deg,rgba(8,7,15,.96),rgba(8,7,15,.7) 72%,rgba(8,7,15,0));
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.bar .in{max-width:1060px;margin:0 auto;display:flex;align-items:center;gap:10px}
+.mark{width:33px;height:33px;border-radius:11px;flex:0 0 auto;display:grid;place-items:center;color:#0b0616;
+  background:linear-gradient(135deg,var(--sky),var(--blue) 56%,var(--cyan));
+  box-shadow:0 8px 20px -9px var(--blue),0 0 18px -4px rgba(56,189,248,.8)}
+.mark svg{width:19px;height:19px;display:block}
+.who{flex:1;min-width:0}
+.who b{display:block;font-size:14.5px;font-weight:800;letter-spacing:.4px;line-height:1.3;
+  background:linear-gradient(92deg,#fff,#bfdbfe 58%,#a9f0ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.who i{display:block;font-style:normal;font-size:11px;color:var(--dim);line-height:1.3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;
+  font-size:11.5px;font-weight:700;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
+.p-active{color:#06301f;background:linear-gradient(135deg,#6ee7b7,#34d399)}
+.p-on_hold{color:#3a2600;background:linear-gradient(135deg,#fde68a,#fbbf24)}
+.p-expired,.p-limited,.p-disabled{color:#fff;background:linear-gradient(135deg,#fb7185,#e11d48)}
+
+/* ---------- layout ---------- */
+.shell{position:relative;z-index:1;width:100%;max-width:1060px;margin:0 auto;padding:4px 14px 0;
+  display:grid;grid-template-columns:1fr;gap:var(--gap)}
+.col{display:grid;gap:var(--gap);align-content:start;min-width:0}
+/* Every panel is a sheet of glass: a translucent fill, a hairline of light along
+   the top edge where the light would catch it, and a real blur of the gradient
+   behind it. The blur is only on the outer sheets -- putting it on the many
+   small inner chips as well costs frames on a phone for no visible gain. */
+.card{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.062),rgba(255,255,255,.016));
+  border:1px solid rgba(255,255,255,.10);border-radius:var(--r);padding:15px;min-width:0;
+  backdrop-filter:blur(16px) saturate(150%);-webkit-backdrop-filter:blur(16px) saturate(150%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 26px 56px -40px #000}
+.sh{display:flex;align-items:center;gap:9px;margin:0 0 12px}
+.sh h2{margin:0;font-size:14px;font-weight:700}
+.sh .n{margin-inline-start:auto;font-size:11.5px;color:var(--dim);border:1px solid var(--line);
+  border-radius:999px;padding:2px 9px;background:rgba(255,255,255,.04);white-space:nowrap}
+.ico{width:27px;height:27px;border-radius:9px;flex:0 0 auto;display:grid;place-items:center;
+  background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--cyan)}
+.ico svg{width:15px;height:15px;display:block}
+
+/* ---------- announcement ---------- */
+.ann{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:14px;font-size:12.5px;
+  background:linear-gradient(135deg,rgba(56,189,248,.13),rgba(34,211,238,.09));
+  border:1px solid rgba(56,189,248,.24)}
+.ann a{color:inherit;text-decoration:none}
+.ann .b{flex:0 0 auto;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;margin-top:3px;
+  font-size:11px;font-weight:800;color:#0b0616;background:linear-gradient(135deg,#bae6fd,var(--sky))}
+
+/* ---------- hero ---------- */
+.hero{position:relative;overflow:hidden;padding:16px}
+/* The mark, bleeding off the bottom-inline-start corner, mostly cropped: a
+   smudge of light behind the text rather than a shape anyone reads. */
+.hero .wm{position:absolute;inset-inline-start:-46px;bottom:-52px;width:236px;height:236px;
+  opacity:.055;pointer-events:none}
+.hero .wm svg{width:100%;height:100%}
+.hero::before{content:"";position:absolute;inset-inline:0;top:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--cyan),var(--blue),var(--sky),transparent);opacity:.85}
+.hrow{display:flex;align-items:center;gap:11px;position:relative}
+/* The circle is the one piece of jewellery on the page: a neon ring, turning
+   slowly, sitting in its own pool of light. The initial inside it is the
+   username's first letter. */
+.avatar{position:relative;width:78px;height:78px;border-radius:50%;flex:0 0 auto;
+  display:grid;place-items:center;font-size:30px;font-weight:800;letter-spacing:.5px;
+  color:#fff;text-shadow:0 0 18px rgba(34,211,238,.85),0 0 34px rgba(56,189,248,.5);
+  background:radial-gradient(circle at 50% 34%,rgba(34,211,238,.24),rgba(37,99,235,.17) 56%,rgba(8,7,15,.86));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 0 24px rgba(34,211,238,.16),
+             0 0 26px -4px rgba(34,211,238,.55),0 0 54px -12px rgba(56,189,248,.55)}
+.avatar::before{content:"";position:absolute;inset:-4px;border-radius:50%;padding:2.5px;
+  background:conic-gradient(from 0deg,var(--cyan),var(--blue) 34%,var(--sky) 62%,var(--cyan));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  mask-composite:exclude;animation:cwspin 7s linear infinite;
+  filter:drop-shadow(0 0 7px rgba(34,211,238,.75))}
+.avatar::after{content:"";position:absolute;inset:-16px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(34,211,238,.16),transparent 68%);
+  animation:cwpulse 4.2s ease-in-out infinite}
+@keyframes cwspin{to{transform:rotate(360deg)}}
+@keyframes cwpulse{0%,100%{opacity:.5;transform:scale(.96)}50%{opacity:1;transform:scale(1.05)}}
+.hrow .nm{flex:1;min-width:0}
+.hrow .nm b{display:block;font-size:20px;font-weight:800;line-height:1.35;word-break:break-word}
+.hrow .nm span{font-size:11.5px;color:var(--dim)}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px;position:relative}
+.tile{display:flex;align-items:center;gap:10px;padding:10px;border-radius:14px;
+  background:linear-gradient(160deg,rgba(255,255,255,.075),rgba(255,255,255,.018));
+  border:1px solid rgba(255,255,255,.11);min-width:0;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+.tile .ti{width:31px;height:31px;border-radius:10px;flex:0 0 auto;display:grid;place-items:center}
+.tile .ti svg{width:15px;height:15px;display:block}
+.tile .tt{min-width:0}
+.tile .tt span{display:block;font-size:10.5px;color:var(--dim);line-height:1.4}
+.tile .tt b{display:block;font-size:14px;font-weight:750;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .tt b em{font-style:normal;font-size:11px;color:var(--dim);font-weight:600}
+.c-cyan{color:var(--cyan);background:rgba(34,211,238,.13)}
+.c-violet{color:var(--blue);background:rgba(37,99,235,.16)}
+.c-sky{color:var(--sky);background:rgba(56,189,248,.14)}
+.c-ok{color:var(--ok);background:rgba(52,211,153,.13)}
+
+/* ---------- block meter ---------- */
+.mblock{display:flex;align-items:center;gap:14px}
+.pct{font-size:34px;font-weight:800;line-height:1;letter-spacing:-1px;font-variant-numeric:tabular-nums;
+  min-width:96px;text-align:center;color:#fff;
+  text-shadow:0 0 16px rgba(34,211,238,.6),0 0 34px rgba(37,99,235,.45)}
+.pct span{display:block;font-size:10.5px;font-weight:600;color:var(--dim);letter-spacing:0;margin-top:4px}
+.meter{flex:1;min-width:0}
+.segs{display:flex;gap:2px;height:26px}
+.segs i{flex:1;min-width:0;border-radius:3px;background:rgba(255,255,255,.055);
+  transition:background .45s var(--ease),box-shadow .45s var(--ease)}
+.segs i.on{background:var(--seg);box-shadow:0 0 11px -1px var(--seg),0 3px 14px -4px var(--seg)}
+.legend{display:flex;flex-wrap:wrap;gap:5px 12px;margin-top:10px;font-size:11.5px}
+.legend span{display:inline-flex;align-items:center;gap:6px;color:var(--dim)}
+.legend span::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.legend b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+.lg-a{color:var(--cyan)}.lg-b{color:var(--ok)}.lg-c{color:var(--blue)}
+
+/* ---------- ping ---------- */
+.pingtop{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ms{min-width:112px;padding:7px 13px;border-radius:13px;text-align:center;
+  background:linear-gradient(160deg,rgba(255,255,255,.07),rgba(0,0,0,.34));
+  border:1px solid rgba(255,255,255,.12);transition:border-color .3s var(--ease);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 0 22px -12px rgba(34,211,238,.9)}
+.ms b{display:block;font-size:26px;font-weight:800;line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.ms span{font-size:10.5px;color:var(--dim)}
+.state{flex:1;min-width:130px}
+.state b{display:block;font-size:13.5px;font-weight:750}
+.state span{font-size:11.5px;color:var(--dim)}
+.spark{position:relative;height:52px;margin-top:11px;border-radius:12px;overflow:hidden;
+  background:rgba(0,0,0,.26);border:1px solid var(--line)}
+.spark svg{display:block;width:100%;height:100%}
+.spark .area{fill:url(#sparkfill);opacity:0;transition:opacity .5s var(--ease)}
+.spark .line{fill:none;stroke:var(--ok);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;
+  transition:stroke .4s var(--ease);filter:drop-shadow(0 0 6px currentColor)}
+.spark .dot{fill:var(--ok);transition:fill .4s var(--ease)}
+.spark .none{position:absolute;inset:0;display:grid;place-items:center;font-size:11px;color:var(--faint)}
+.tries{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap}
+.tries span{font-size:10.5px;padding:2px 8px;border-radius:999px;color:var(--dim);
+  background:rgba(255,255,255,.05);border:1px solid var(--line);font-variant-numeric:tabular-nums}
+
+/* ---------- buttons ---------- */
+.btn{font:inherit;font-size:12.5px;font-weight:700;border-radius:12px;padding:9px 13px;cursor:pointer;
+  border:1px solid var(--line);background:rgba(255,255,255,.055);color:var(--ink);
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  transition:transform .16s var(--ease),background .2s}
+.btn:active{transform:scale(.96)}
+.btn svg{width:14px;height:14px;flex:0 0 auto}
+.btn.pri{background:linear-gradient(135deg,var(--sky),var(--blue) 58%,var(--cyan));color:#0b0616;
+  border-color:transparent;box-shadow:0 14px 30px -15px var(--blue),inset 0 1px 0 rgba(255,255,255,.45)}
+.btn.wide{flex:1}
+.ib{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;cursor:pointer;padding:0;
+  border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--ink);transition:transform .16s var(--ease)}
+.ib svg{width:15px;height:15px;display:block}
+.ib:active{transform:scale(.93)}
+.ib.done{background:linear-gradient(135deg,#6ee7b7,#34d399);color:#06281d;border-color:transparent}
+
+/* ---------- subscription link ---------- */
+.urlrow{display:flex;gap:8px;min-width:0}
+.url{flex:1;min-width:0;font-size:11.5px;direction:ltr;text-align:left;padding:11px 12px;border-radius:12px;
+  background:rgba(0,0,0,.4);border:1px solid var(--line);color:#d6d1e8;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-family:ui-monospace,Menlo,Consolas,monospace}
+.linkbtns{display:flex;gap:8px;margin-top:9px}
+
+/* ---------- configs ---------- */
+.cfg{display:flex;align-items:center;gap:11px;padding:11px;border-radius:15px;margin-bottom:9px;
+  margin-inline-start:0;border:1px solid rgba(255,255,255,.11);position:relative;overflow:hidden;
+  background:linear-gradient(135deg,rgba(255,255,255,.062),rgba(255,255,255,.018));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+.cfg:last-child{margin-bottom:0}
+.cfg::before{content:"";position:absolute;inset-inline-start:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,var(--cyan),var(--blue),var(--sky));
+  box-shadow:0 0 12px rgba(37,99,235,.85)}
+.cfg .sig{width:38px;height:38px;border-radius:12px;flex:0 0 auto;display:grid;place-items:center;
+  font-size:11.5px;font-weight:800;letter-spacing:.4px;color:#0b0616;
+  background:linear-gradient(135deg,#a5f3fc,#93c5fd)}
+.cfg .col2{flex:1;min-width:0}
+.cfg .nm{display:block;font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tags{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
+.tg{font-size:9.5px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:999px;
+  background:rgba(255,255,255,.07);border:1px solid var(--line);color:var(--dim);text-transform:uppercase}
+.tg.p{color:#c3f6ff;border-color:rgba(34,211,238,.32);background:rgba(34,211,238,.11)}
+.cfg .acts{display:flex;gap:6px;flex:0 0 auto}
+.empty{font-size:12.5px;color:var(--dim);text-align:center;padding:14px;border:1px dashed var(--line);border-radius:14px}
+
+/* ---------- apps ---------- */
+.apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.app{display:flex;flex-direction:column;align-items:center;gap:7px;padding:11px 6px;border-radius:15px;
+  text-decoration:none;color:var(--ink);border:1px solid rgba(255,255,255,.11);position:relative;overflow:hidden;
+  background:linear-gradient(150deg,rgba(255,255,255,.07),rgba(255,255,255,.017));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.075);
+  transition:transform .16s var(--ease),border-color .2s}
+.app:active{transform:scale(.96)}
+.app .aq{width:38px;height:38px;border-radius:12px;flex:0 0 auto;display:grid;place-items:center;color:#fff}
+.app .aq svg{width:19px;height:19px;display:block}
+.app .an{font-size:11px;font-weight:700;line-height:1.3;max-width:100%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.app.best{border-color:rgba(56,189,248,.48);box-shadow:0 0 0 1px rgba(56,189,248,.2),0 14px 30px -24px var(--sky)}
+.app .flag{position:absolute;top:0;inset-inline-start:0;font-size:8px;font-weight:800;padding:2px 7px;
+  border-end-end-radius:9px;background:linear-gradient(135deg,var(--sky),var(--blue));color:#fff}
+.q1{background:linear-gradient(135deg,#2563eb,#4f46e5)}
+.q2{background:linear-gradient(135deg,#16a34a,#059669)}
+.q3{background:linear-gradient(135deg,#2563eb,#0ea5e9)}
+.q4{background:linear-gradient(135deg,#0ea5e9,#0284c7)}
+.q5{background:linear-gradient(135deg,#f59e0b,#ea580c)}
+.q6{background:linear-gradient(135deg,#0d9488,#0891b2)}
+.q7{background:linear-gradient(135deg,#475569,#334155)}
+.acc:last-child{margin-bottom:0}
+.acc summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:12px;font-size:13px;font-weight:650}
+.acc summary::-webkit-details-marker{display:none}
+.acc summary .idx{width:22px;height:22px;border-radius:8px;flex:0 0 auto;display:grid;place-items:center;
+  font-size:11px;font-weight:800;color:#0b0616;background:linear-gradient(135deg,#93c5fd,#a5f3fc)}
+.acc summary .cv{margin-inline-start:auto;color:var(--dim);transition:transform .25s var(--ease)}
+.acc[open] summary .cv{transform:rotate(180deg)}
+.acc .body{padding:0 12px 13px 12px;font-size:12.5px;color:#cdc7e3;line-height:1.95}
+.acc .body b{color:#fff}
+.acc .body ol{margin:6px 0;padding-inline-start:18px}
+
+/* ---------- telegram / support ---------- */
+/* The Telegram button. A pane of glass with Telegram blue behind it rather than
+   a slab of painted colour: you can see the page's own gradient through it, the
+   top edge catches a highlight, and it glows in Telegram's own blue. A slow
+   sheen crosses it, which is what makes glass read as glass instead of as a
+   lighter rectangle. */
+.tgcard{display:flex;align-items:center;gap:13px;padding:15px;border-radius:var(--r);text-decoration:none;
+  color:#fff;position:relative;overflow:hidden;
+  background:linear-gradient(118deg,rgba(42,171,238,.36),rgba(34,158,217,.19) 55%,rgba(37,99,235,.20));
+  border:1px solid rgba(126,206,255,.38);
+  backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.32),inset 0 -18px 34px -22px rgba(42,171,238,.75),
+             0 24px 52px -28px rgba(42,171,238,.95),0 0 0 1px rgba(255,255,255,.045);
+  transition:transform .18s var(--ease),box-shadow .28s var(--ease)}
+.tgcard:active{transform:scale(.975)}
+.tgcard::before{content:"";position:absolute;top:-58%;inset-inline-end:-16%;width:170px;height:170px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.34),transparent 66%)}
+.tgcard::after{content:"";position:absolute;top:-10%;bottom:-10%;left:-38%;width:34%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.30),transparent);
+  transform:skewX(-18deg);animation:cwshine 5.2s ease-in-out infinite;pointer-events:none}
+@keyframes cwshine{0%{transform:translateX(0) skewX(-18deg);opacity:0}
+  10%{opacity:1}58%{transform:translateX(560%) skewX(-18deg);opacity:0}100%{opacity:0}}
+.tgcard .q{width:46px;height:46px;border-radius:15px;flex:0 0 auto;display:grid;place-items:center;
+  background:linear-gradient(150deg,rgba(255,255,255,.34),rgba(255,255,255,.13));
+  border:1px solid rgba(255,255,255,.44);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 8px 20px -10px rgba(42,171,238,.95)}
+.tgcard .q svg{width:24px;height:24px;filter:drop-shadow(0 0 8px rgba(255,255,255,.6))}
+.tgcard .tt{flex:1;min-width:0}
+.tgcard .t1{display:block;font-size:14.5px;font-weight:800}
+.tgcard .t2{display:block;font-size:11.5px;opacity:.9}
+.tgcard .ar{font-size:19px;opacity:.85}
+.suprow{display:flex;align-items:center;gap:11px;padding:12px 14px;border-radius:15px;text-decoration:none;
+  color:var(--ink);border:1px solid rgba(255,255,255,.10);
+  background:linear-gradient(160deg,rgba(255,255,255,.062),rgba(255,255,255,.016));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+.suprow .ico{color:var(--sky)}
+.suprow .tt{flex:1;min-width:0}
+.suprow .t1{display:block;font-size:13px;font-weight:700}
+.suprow .t2{display:block;font-size:11px;color:var(--dim)}
+.suprow .ar{color:var(--dim)}
+
+/* ---------- footer ---------- */
+.foot{text-align:center;font-size:11.5px;color:var(--faint);padding:4px 0 10px;line-height:2}
+.foot .c{display:inline-flex;align-items:center;gap:6px;color:var(--dim)}
+.foot .c svg{width:14px;height:14px}
+.foot b{color:#e6e1f7}
+
+/* ---------- sticky quick connect (phones only) ---------- */
+.cta{position:fixed;inset-inline:0;bottom:0;z-index:40;padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,rgba(8,7,15,0),rgba(8,7,15,.92) 42%);pointer-events:none}
+.cta a{pointer-events:auto;display:flex;align-items:center;justify-content:center;gap:9px;
+  width:100%;max-width:520px;margin:0 auto;padding:14px;border-radius:16px;text-decoration:none;
+  font-size:14px;font-weight:800;color:#fff;position:relative;overflow:hidden;
+  background:linear-gradient(100deg,#4f46e5,#2563eb 46%,#06b6d4);
+  border:1px solid rgba(150,215,255,.35);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 16px 38px -16px rgba(37,99,235,.95),
+             0 0 30px -12px rgba(34,211,238,.9)}
+.cta svg{width:17px;height:17px}
+
+/* ---------- qr sheet ---------- */
+.sheet{position:fixed;inset:0;z-index:60;background:rgba(4,3,9,.8);backdrop-filter:blur(7px);
+  display:grid;place-items:center;padding:18px;opacity:0;pointer-events:none;transition:opacity .26s var(--ease)}
+.sheet.on{opacity:1;pointer-events:auto}
+.sheet .box{width:100%;max-width:326px;background:#0f0d19;border:1px solid var(--line);border-radius:22px;
+  padding:19px;text-align:center;transform:translateY(14px) scale(.97);
+  transition:transform .3s var(--ease);box-shadow:0 40px 90px -40px #000}
+.sheet.on .box{transform:none}
+.sheet h3{margin:0 0 3px;font-size:15px}
+.sheet .hint{margin:0 0 14px;font-size:11.5px;color:var(--dim)}
+.sheet .qr{background:#fff;border-radius:16px;padding:11px;display:inline-block;line-height:0}
+.sheet .url{margin-top:12px;font-size:10.5px;direction:ltr;text-align:left;color:var(--dim);
+  word-break:break-all;max-height:56px;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace}
+.sheet .bs{display:flex;gap:8px;margin-top:15px}
+.toast{position:fixed;inset-inline:0;bottom:calc(90px + env(safe-area-inset-bottom));z-index:70;
+  display:flex;justify-content:center;pointer-events:none;opacity:0;transform:translateY(12px);
+  transition:all .28s var(--ease);padding:0 16px}
+.toast.on{opacity:1;transform:none}
+.toast span{padding:10px 18px;border-radius:999px;font-size:12.5px;font-weight:700;color:#0b0616;
+  background:linear-gradient(135deg,#93c5fd,#a5f3fc);box-shadow:0 16px 34px -14px #000}
+
+/* ---------- wide screens ---------- */
+@media (min-width:820px){
+  body{padding-bottom:36px}
+  .apps{grid-template-columns:repeat(6,1fr)}
+  .app{padding:10px 4px}
+  .shell{grid-template-columns:1fr 1fr;gap:18px;padding-top:8px}
+  .cta{display:none}
+  .hero{padding:18px}
+  .hrow .nm b{font-size:22px}
+  .toast{bottom:26px}
+}
+@media (max-width:359px){
+  .tiles{grid-template-columns:1fr}
+  .pct{font-size:29px;min-width:82px}
+  .apps{grid-template-columns:repeat(auto-fill,minmax(80px,1fr))}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+{# Anything that cannot work without a script is marked .js-only and removed
+   here. Everything else is rendered by the server, so the page is complete
+   with JavaScript switched off: the meter is filled, the numbers are real,
+   the configs carry their names and the dates are readable. #}
+<noscript><style>.js-only{display:none!important}</style></noscript>
+<div class="bg"></div>
+
+{% set st = user.status.value %}
+<header class="bar">
+  <div class="in">
+    <span class="mark">{% include "subscription/pablo.svg" %}</span>
+    <span class="who">
+      <b>{{ BOLD }}</b>
+      <i>{{ TAGLINE }} · {{ user.username }}</i>
+    </span>
+    <span class="pill p-{{ st }}">
+      {%- if st == 'active' %}فعال
+      {%- elif st == 'expired' %}منقضی
+      {%- elif st == 'limited' %}اتمام حجم
+      {%- elif st == 'on_hold' %}شروع نشده
+      {%- elif st == 'disabled' %}غیرفعال
+      {%- else %}{{ st }}{% endif -%}
+    </span>
+  </div>
+</header>
+
+{% set used      = user.used_traffic or 0 %}
+{% set limit     = user.data_limit or 0 %}
+{% set unlimited = (limit == 0) %}
+{% set pct       = 0 if unlimited else ([100, (used * 100 / limit)] | min) %}
+{% set left      = (limit - used) if limit > used else 0 %}
+{% set danger    = (not unlimited and pct >= 85) or st == 'limited' %}
+
+<main class="shell">
+
+  <div class="col a">
+
+    {% if announce %}
+    <div class="ann">
+      <span class="b">!</span>
+      <div>
+        {%- if announce_url %}<a href="{{ announce_url }}" target="_blank" rel="noopener">{{ announce | replace('\n','<br>') }}</a>
+        {%- else %}{{ announce | replace('\n','<br>') }}{% endif -%}
+      </div>
+    </div>
+    {% endif %}
+
+    {# ---------- who and what ---------- #}
+    <section class="card hero">
+      <div class="wm">{% include "subscription/pablo.svg" %}</div>
+      <div class="hrow">
+        <span class="avatar">{{ user.username[:1] | upper }}</span>
+        <span class="nm">
+          <b>{{ user.username }}</b>
+          <span>اشتراک {{ BRAND }} · {% if danger %}نزدیک به پایان{% else %}آماده استفاده{% endif %}</span>
+        </span>
+      </div>
+
+      <div class="tiles">
+        <div class="tile">
+          <span class="ti c-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg></span>
+          <span class="tt"><span>زمان باقی‌مانده</span>
+            <b>
+              {%- if user.expire -%}
+                {%- set days = ((user.expire - now()).days) -%}
+                {%- if days < 0 %}0 <em>روز</em>{% else %}{{ days }} <em>روز</em>{% endif -%}
+              {%- elif user.on_hold_expire_duration %}{{ (user.on_hold_expire_duration / 86400) | int }} <em>روز</em>
+              {%- else %}∞{% endif -%}
+            </b>
+          </span>
+        </div>
+
+        <div class="tile">
+          <span class="ti c-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
+          <span class="tt"><span>تاریخ انقضا</span>
+            <b>
+              {%- if user.expire -%}
+                {# Gregorian as the server can render it; jalali.js upgrades the
+                   text in place when a script is available. #}
+                <span class="gdate" data-ts="{{ user.expire.timestamp() | int }}">{{ user.expire | datetime }}</span>
+              {%- else -%}—{%- endif -%}
+            </b>
+          </span>
+        </div>
+
+        <div class="tile">
+          <span class="ti c-sky"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg></span>
+          <span class="tt"><span>کل حجم</span>
+            <b>{% if unlimited %}∞{% else %}{{ limit | bytesformat }}{% endif %}</b>
+          </span>
+        </div>
+
+        <div class="tile">
+          <span class="ti c-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span class="tt"><span>حجم باقی‌مانده</span>
+            <b>{% if unlimited %}∞{% else %}{{ left | bytesformat }}{% endif %}</b>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    {# ---------- usage ---------- #}
+    {# A block meter instead of a dial: twenty segments, each one lit by the
+       server, so the reading is correct before any script runs and the script
+       only staggers them in. Colour runs cyan to magenta across the row, and
+       turns amber to red once the account is nearly out. #}
+    <section class="card">
+      <div class="sh">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span>
+        <h2>مصرف حجم</h2>
+        <span class="n">{% if unlimited %}نامحدود{% else %}{{ limit | bytesformat }}{% endif %}</span>
+      </div>
+
+      <div class="mblock">
+        <div class="pct">
+          {% if unlimited and st == 'active' %}∞{% else %}{{ pct | round(0) | int }}%{% endif %}
+          <span>مصرف شده</span>
+        </div>
+        <div class="meter">
+          <div class="segs">
+            {% for i in range(20) %}
+            {% set lit = (unlimited and st == 'active') or ((i + 1) * 5 <= pct) %}
+            <i class="{% if lit %}on{% endif %}"
+               style="--seg:hsl({{ (42 + i * 15.5) if danger else (186 + i * 7.4) }} 88% 62%)"></i>
+            {% endfor %}
+          </div>
+          <div class="legend">
+            <span class="lg-a">مصرف شده <b>{{ used | bytesformat }}</b></span>
+            <span class="lg-b">باقی‌مانده <b>{% if unlimited %}∞{% else %}{{ left | bytesformat }}{% endif %}</b></span>
+            <span class="lg-c">کل حجم <b>{% if unlimited %}∞{% else %}{{ limit | bytesformat }}{% endif %}</b></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# ---------- ping ---------- #}
+    {# Round trip from this phone to the server that served this page: three
+       samples, best one wins, drawn as a sparkline. /health is on this same
+       origin, so there is no CORS anywhere in this and no third party learns
+       the page was opened. It measures the phone-to-panel path; the tunnel
+       itself can differ, which the guide below says plainly. #}
+    <section class="card js-only">
+      <div class="sh">
+        <span class="ico" style="color:var(--ok)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 8-4-16-3 8H2"/></svg></span>
+        <h2>پینگ تا سرور</h2>
+        <button class="btn" type="button" id="pgo" style="margin-inline-start:auto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+          دوباره
+        </button>
+      </div>
+
+      <div class="pingtop">
+        <div class="ms" id="msbox"><b id="msval">—</b><span>میلی‌ثانیه</span></div>
+        <div class="state">
+          <b id="pgrade">در حال اندازه‌گیری…</b>
+          <span id="psub">مسیر گوشی تو تا همین سرور</span>
+          <div class="tries" id="tries"></div>
+        </div>
+      </div>
+
+      <div class="spark" id="spark">
+        <svg viewBox="0 0 300 52" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="sparkfill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#34d399" stop-opacity=".38"/>
+              <stop offset="1" stop-color="#34d399" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path class="area" id="sparkarea" d=""/>
+          <path class="line" id="sparkline" d=""/>
+          <circle class="dot" id="sparkdot" r="0" cx="0" cy="0"/>
+        </svg>
+        <div class="none" id="sparknone">نمودار پس از اولین تست اینجا کشیده می‌شود</div>
+      </div>
+    </section>
+  </div>
+
+  <div class="col b">
+
+    {# ---------- subscription link ---------- #}
+    <section class="card">
+      <div class="sh">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>
+        <h2>لینک اشتراک</h2>
+      </div>
+      {# The panel does not hand the template its own address (the context is
+         only user / links / announce / announce_url / apps), but the page is
+         being served AT that address, so the browser already knows it exactly. #}
+      <div class="urlrow">
+        <div class="url" id="suburl"></div>
+        <button class="btn pri js-only" type="button" id="subcopy">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
+          کپی
+        </button>
+      </div>
+      <div class="linkbtns">
+        <button class="btn wide js-only" type="button" id="copyall">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h11a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z"/><path d="M5 16H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v1"/></svg>
+          کپی همه
+        </button>
+        <button class="btn wide js-only" type="button" id="subqr">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><path d="M14 14h3v3h-3zM19.5 14v.01M20 19.5h.01M14 20v.01M17 20v.01"/></svg>
+          کد QR
+        </button>
+      </div>
+    </section>
+
+    {# ---------- configs ---------- #}
+    <section class="card">
+      <div class="sh">
+        <span class="ico" style="color:var(--blue)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 12.5H11L10 22l8.5-10.5H12L13 2Z"/></svg></span>
+        <h2>کانفیگ‌ها</h2>
+        <span class="n">{{ links | length }}</span>
+      </div>
+
+      {% if links %}
+        {% for link in links %}
+        {% set proto = (link.split('://')[0] | lower) %}
+        {% if proto == 'vless' %}{% set sig = 'VL' %}
+        {% elif proto == 'vmess' %}{% set sig = 'VM' %}
+        {% elif proto == 'trojan' %}{% set sig = 'TJ' %}
+        {% elif proto == 'shadowsocks' %}{% set sig = 'SS' %}
+        {% elif proto == 'wireguard' %}{% set sig = 'WG' %}
+        {% else %}{% set sig = proto[:3] | upper %}{% endif %}
+        <div class="cfg">
+          <span class="sig">{{ sig }}</span>
+          <span class="col2">
+            {# bootstrap names every host "BOLD | username", and the panel fills
+               the username in per user. So the real name is known here and is
+               printed by the server; the script only takes over if it can read
+               the actual remark back out of the link. #}
+            <span class="nm" data-name="{{ link }}">{{ BOLD }} | {{ user.username }}</span>
+            <span class="tags" data-tags="{{ link }}"><span class="tg p">{{ proto }}</span></span>
+          </span>
+          <span class="acts">
+            <button class="ib copy js-only" type="button" data-copy="{{ link }}" title="کپی" aria-label="کپی">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+            <button class="ib qrbtn js-only" type="button" data-qr="{{ link }}" data-label="{{ user.username }}" title="کد QR" aria-label="کد QR">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><path d="M14 14h3v3h-3zM19.5 14v.01M20 19.5h.01M14 20v.01M17 20v.01"/></svg>
+            </button>
+          </span>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty">هنوز کانفیگی نداری. اگر همین حالا ساختی، چند لحظه بعد این صفحه را دوباره باز کن.</div>
+      {% endif %}
+    </section>
+
+    {# ---------- apps ---------- #}
+    {% if apps %}
+    <section class="card">
+      <div class="sh">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="3.2"/></svg></span>
+        <h2>اتصال با یک لمس</h2>
+      </div>
+      <div class="apps">
+        {% for app in apps %}
+        {% set low = app.name | lower %}
+        {% if 'v2ray' in low %}{% set tone = 'q2' %}
+        {% elif 'hiddify' in low %}{% set tone = 'q1' %}
+        {% elif 'v2box' in low %}{% set tone = 'q3' %}
+        {% elif 'neko' in low %}{% set tone = 'q4' %}
+        {% elif 'happ' in low %}{% set tone = 'q5' %}
+        {% elif 'streisand' in low or 'shadow' in low %}{% set tone = 'q6' %}
+        {% else %}{% set tone = 'q7' %}{% endif %}
+        <a class="app{% if 'v2ray' in low %} best{% endif %}" href="{{ app.import_url }}" target="_blank" rel="noopener">
+          {% if 'v2ray' in low %}<span class="flag">پیشنهادی</span>{% endif %}
+          <span class="aq {{ tone }}">
+            {%- if 'hiddify' in low -%}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7 20 7v10l-8 4.3L4 17V7l8-4.3Z"/><path d="m8.6 12 2.4 2.4 4.4-4.8"/></svg>
+            {%- elif 'v2ray' in low or 'v2box' in low -%}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 12.5H11L10 22l8.5-10.5H12L13 2Z"/></svg>
+            {%- elif 'neko' in low -%}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5 12 3l9 4.5v9L12 21 3 16.5v-9Z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></svg>
+            {%- elif 'streisand' in low or 'shadow' in low -%}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15c-2 0-3-1-3-3.5S4 8 6.5 8c1-3 3.5-4.5 6.5-4.5 3.6 0 6 2 6.8 5 2 .3 3.2 1.7 3.2 3.3 0 1.7-1.2 3.2-3.5 3.2"/><path d="M12 21v-8M9.5 15.5 12 13l2.5 2.5"/></svg>
+            {%- else -%}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3.5 12h17M12 3.2c2.4 2.5 3.6 5.5 3.6 8.8S14.4 18.3 12 20.8c-2.4-2.5-3.6-5.5-3.6-8.8S9.6 5.7 12 3.2Z"/></svg>
+            {%- endif -%}
+          </span>
+          <span class="an">{{ app.name }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+      {# ---------- where to find us ---------- #}
+      <div class="col" style="gap:12px">
+        <a class="tgcard" href="{{ CHANNEL }}" target="_blank" rel="noopener">
+          <span class="q">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.9 4.3 18.7 19c-.2 1-.9 1.3-1.8.8l-4.9-3.6-2.4 2.3c-.3.3-.5.5-1 .5l.3-5 9.1-8.2c.4-.4-.1-.6-.6-.2L6.2 13.1l-4.8-1.5c-1-.3-1-1 .2-1.5l18.8-7.2c.9-.3 1.6.2 1.5 1.4Z"/></svg>
+          </span>
+          <span class="tt">
+            <span class="t1">کانال تلگرام ما</span>
+            {# the handle comes off the link itself, so the two can never drift #}
+            <span class="t2">@{{ CHANNEL.rstrip('/').split('/')[-1] }} · آپدیت‌ها و کانفیگ‌های تازه</span>
+          </span>
+          <span class="ar">‹</span>
+        </a>
+
+        {% if SUPPORT %}
+        <a class="suprow" href="{{ SUPPORT }}" target="_blank" rel="noopener">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4L3 21l1.1-9A8.4 8.4 0 1 1 21 11.5Z"/></svg></span>
+          <span class="tt">
+            <span class="t1">پشتیبانی مستقیم</span>
+            <span class="t2">سوالی داری؟ پیام بده</span>
+          </span>
+          <span class="ar">‹</span>
+        </a>
+        {% endif %}
+
+        <div class="foot">
+          <span class="c">{% include "subscription/pablo.svg" %}&nbsp;قدرت‌گرفته از <b>{{ BOLD }}</b></span><br>
+          این صفحه فقط برای تو ساخته شده — لینکش را به کسی نده.
+        </div>
+      </div>
+  </div>
+</main>
+
+{# ---------- quick connect, phones only ---------- #}
+{% set quick = namespace(a=None) %}
+{% for app in apps %}
+  {% if quick.a is none or 'v2ray' in (app.name | lower) %}
+    {% set quick.a = app %}
+  {% endif %}
+{% endfor %}
+{% if apps %}
+<div class="cta">
+  <a href="{{ quick.a.import_url }}" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 12.5H11L10 22l8.5-10.5H12L13 2Z"/></svg>
+    اتصال سریع با {{ quick.a.name }}
+  </a>
+</div>
+{% endif %}
+
+{# ---------- qr sheet ---------- #}
+<div class="sheet" id="sheet">
+  <div class="box">
+    <h3 id="stitle">اسکن کن</h3>
+    <p class="hint">با دوربین گوشی یا خود اپ اسکن کن</p>
+    <div class="qr" id="qrbox"></div>
+    <div class="url" id="qrurl"></div>
+    <div class="bs">
+      <button class="btn pri wide" type="button" id="sheetcopy">کپی لینک</button>
+      <button class="btn wide" type="button" id="sheetclose">بستن</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span id="toastt"></span></div>
+
+<script>{% include "subscription/qrcode.js" %}</script>
+<script>{% include "subscription/jalali.js" %}</script>
+<script>
+(function(){
+  "use strict";
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  /* 3x-ui's Hosts page is authoritative. Config links are kept exactly as
+     Sanaei generated them, so a domain, CDN, SNI, Host header or path saved in
+     Hosts remains the value copied from this page and placed in its QR code. */
+
+  function say(msg){
+    var t = $('toast'), s = $('toastt');
+    if (!t || !s) return;
+    s.textContent = msg;
+    t.classList.add('on');
+    clearTimeout(say._t);
+    say._t = setTimeout(function(){ t.classList.remove('on'); }, 1800);
+  }
+
+  /* ---------- copy, with a fallback for in-app browsers ---------- */
+  function fallbackCopy(text){
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly','');
+      ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch(e){ return false; }
+  }
+  function put(text){
+    if (navigator.clipboard && window.isSecureContext){
+      return navigator.clipboard.writeText(text)
+        .then(function(){ return true; }, function(){ return fallbackCopy(text); });
+    }
+    return Promise.resolve(fallbackCopy(text));
+  }
+
+  document.addEventListener('click', function(ev){
+    var el = ev.target;
+    var near = function(sel){ return (el && el.closest) ? el.closest(sel) : null; };
+
+    var b = near('.copy');
+    if (b){
+      put(b.getAttribute('data-copy') || '').then(function(ok){
+        say(ok ? 'کپی شد ✓' : 'کپی نشد — دستی انتخاب کن');
+        if (ok){ b.classList.add('done'); setTimeout(function(){ b.classList.remove('done'); }, 1200); }
+      });
+      return;
+    }
+    if (near('#subcopy')){
+      put($('suburl').textContent.trim()).then(function(ok){ say(ok ? 'لینک اشتراک کپی شد ✓' : 'کپی نشد'); });
+      return;
+    }
+    if (near('#copyall')){
+      var all = [], c = document.querySelectorAll('.copy[data-copy]'), i;
+      for (i = 0; i < c.length; i++) all.push(c[i].getAttribute('data-copy'));
+      if (!all.length){ say('کانفیگی نیست'); return; }
+      put(all.join('\n')).then(function(ok){ say(ok ? (all.length + ' کانفیگ کپی شد ✓') : 'کپی نشد'); });
+    }
+  });
+
+  /* ---------- the subscription link ---------- */
+  /* location.href is the address this page was opened at, which IS the
+     subscription URL. Nothing has to be templated for it, so it can never
+     drift out of sync, and any query a client added is dropped. */
+  (function(){
+    var box = $('suburl');
+    if (!box) return;
+    var url = location.origin + location.pathname;
+    box.textContent = url;
+    box.title = url;
+    var qr = $('subqr');
+    if (qr) qr.setAttribute('data-qr', url);
+  })();
+
+  /* ---------- qr sheet ---------- */
+  var sheet = $('sheet'), qrbox = $('qrbox'), qrurl = $('qrurl'), cur = '';
+  function openQR(link, label){
+    if (!link) return;
+    cur = link;
+    qrbox.innerHTML = '';
+    qrurl.textContent = link;
+    $('stitle').textContent = label ? ('اسکن کن — ' + label) : 'اسکن کن';
+    sheet.classList.add('on');
+    document.body.style.overflow = 'hidden';
+    try {
+      new QRCode(qrbox, { text: link, width: 212, height: 212,
+                          colorDark: '#120a24', colorLight: '#ffffff',
+                          correctLevel: QRCode.CorrectLevel.M });
+    } catch(e){
+      qrbox.innerHTML = '<div style="width:212px;height:212px;display:grid;place-items:center;color:#666;font-size:12px;text-align:center;padding:10px">ساخت کد QR ممکن نشد</div>';
+    }
+  }
+  function closeQR(){
+    sheet.classList.remove('on');
+    document.body.style.overflow = '';
+    qrbox.innerHTML = '';
+  }
+  document.addEventListener('click', function(ev){
+    var el = ev.target;
+    var b = (el && el.closest) ? el.closest('.qrbtn') : null;
+    if (b) openQR(b.getAttribute('data-qr'), b.getAttribute('data-label'));
+  });
+  $('sheetclose').addEventListener('click', closeQR);
+  sheet.addEventListener('click', function(ev){ if (ev.target === sheet) closeQR(); });
+  $('sheetcopy').addEventListener('click', function(){
+    put(cur).then(function(ok){ say(ok ? 'کپی شد ✓' : 'کپی نشد'); });
+  });
+  document.addEventListener('keydown', function(ev){ if (ev.key === 'Escape') closeQR(); });
+
+  /* ---------- Gregorian -> Persian calendar ---------- */
+  /* The server can only render Gregorian. If this runs, every .gdate is
+     rewritten in place; if it does not, the Gregorian text stays and the page
+     is still fully usable. The conversion itself is checked against Python's
+     jdatetime over 25 959 dates -- see tools/check-jalali.js. */
+  (function(){
+    if (!window.CWJalali) return;
+    var nodes = document.querySelectorAll('.gdate[data-ts]'), i;
+    for (i = 0; i < nodes.length; i++){
+      var ts = parseInt(nodes[i].getAttribute('data-ts'), 10);
+      if (!ts) continue;
+      try {
+        var d = new Date(ts * 1000);
+        var j = CWJalali.g2j(d.getFullYear(), d.getMonth() + 1, d.getDate());
+        nodes[i].textContent = j.jd + ' ' + CWJalali.MONTHS[j.jm - 1] + ' ' + j.jy;
+        nodes[i].setAttribute('title', d.toISOString().slice(0, 10));
+      } catch(e){}
+    }
+  })();
+
+  /* ---------- config names and tags ---------- */
+  /* A link looks like  vless://uuid@host:443?...#%D9%86%D8%A7%D9%85...%20%7C%20name
+     The part after # is the remark the panel built, percent-encoded. Decoding
+     it gives exactly the name the client will show. Without a script the card
+     shows the server-rendered name instead, so nothing is lost either way. */
+  (function(){
+    var SHORT = { vless:'VL', vmess:'VM', trojan:'TJ', shadowsocks:'SS',
+                  wireguard:'WG', hysteria:'HY', hysteria2:'H2', tuic:'TU', ssh:'SH' };
+
+    function parse(link){
+      var out = { name:'', proto:'', net:'', sec:'', port:'' };
+      var i = link.indexOf('://');
+      if (i < 0) return out;
+      out.proto = link.slice(0, i).toLowerCase();
+      var hash = link.indexOf('#');
+      if (hash >= 0){
+        try { out.name = decodeURIComponent(link.slice(hash + 1)); }
+        catch(e){ out.name = link.slice(hash + 1); }
+        link = link.slice(0, hash);
+      }
+      var q = link.indexOf('?');
+      if (q >= 0){
+        var parts = link.slice(q + 1).split('&'), k;
+        for (k = 0; k < parts.length; k++){
+          var kv = parts[k].split('=');
+          var key = kv[0].toLowerCase(), val = kv[1] ? decodeURIComponent(kv[1]) : '';
+          if (key === 'type') out.net = val;
+          if (key === 'security') out.sec = val;
+        }
+        link = link.slice(0, q);
+      }
+      var at = link.lastIndexOf('@');
+      var tail = at >= 0 ? link.slice(at + 1) : '';
+      var c = tail.lastIndexOf(':');
+      if (c >= 0) out.port = tail.slice(c + 1);
+      return out;
+    }
+
+    var cards = document.querySelectorAll('.cfg'), i;
+    for (i = 0; i < cards.length; i++){
+      var nameEl = cards[i].querySelector('.nm[data-name]');
+      var tagEl  = cards[i].querySelector('.tags[data-tags]');
+      var sigEl  = cards[i].querySelector('.sig');
+      if (!nameEl) continue;
+      var p = parse(nameEl.getAttribute('data-name') || '');
+      if (p.name) nameEl.textContent = p.name;
+      if (sigEl) sigEl.textContent = SHORT[p.proto] || (p.proto ? p.proto.slice(0,3).toUpperCase() : '');
+      var html = '<span class="tg p">' + p.proto + '</span>';
+      if (p.net)  html += '<span class="tg">' + p.net + '</span>';
+      if (p.sec)  html += '<span class="tg">' + p.sec + '</span>';
+      if (p.port) html += '<span class="tg" dir="ltr">' + p.port + '</span>';
+      if (tagEl) tagEl.innerHTML = html;
+    }
+  })();
+
+  /* ---------- the meter ---------- */
+  /* The server already lit the right segments. Here they are switched off and
+     faded back in one after another, so the bar reads correctly even if this
+     never runs. */
+  (function(){
+    var segs = document.querySelectorAll('.segs i'), i;
+    if (!segs.length || !window.requestAnimationFrame) return;
+    var lit = [];
+    for (i = 0; i < segs.length; i++) if (segs[i].classList.contains('on')) lit.push(segs[i]);
+    if (!lit.length) return;
+    for (i = 0; i < lit.length; i++) lit[i].style.opacity = '0';
+    for (i = 0; i < lit.length; i++){
+      (function(el, n){
+        setTimeout(function(){
+          el.style.transition = 'opacity .3s ease';
+          el.style.opacity = '1';
+        }, 70 + n * 42);
+      })(lit[i], i);
+    }
+  })();
+
+  /* ---------- ping ---------- */
+  /* Round trip from this phone to the server behind this page. Three samples,
+     best one wins: a single reading on mobile data is mostly noise. /health is
+     preferred because it touches nothing; if the proxy in front of the panel
+     does not expose it, this very page is re-fetched instead. */
+  (function(){
+    var msval = $('msval'), box = $('msbox'), grade = $('pgrade'), sub = $('psub'),
+        triesEl = $('tries'), line = $('sparkline'), area = $('sparkarea'),
+        dot = $('sparkdot'), noneEl = $('sparknone');
+    if (!msval || !window.fetch) return;
+
+    var COLORS = { great:'#34d399', good:'#22d3ee', ok:'#fbbf24', bad:'#fb7185', dead:'#6c6684' };
+    var hist = [], busy = false;
+
+    function bandOf(ms){
+      if (ms <= 120) return ['great', 'عالی', 5];
+      if (ms <= 250) return ['good', 'خوب', 4];
+      if (ms <= 450) return ['ok', 'متوسط', 3];
+      return ['bad', 'ضعیف', 2];
+    }
+
+    function once(url){
+      var t0 = (window.performance && performance.now) ? performance.now() : Date.now();
+      return fetch(url, { cache:'no-store', credentials:'omit' }).then(function(r){
+        if (!r.ok) throw new Error('status');
+        return ((window.performance && performance.now) ? performance.now() : Date.now()) - t0;
+      });
+    }
+
+    /* sparkline: samples across the box, newest on the left, because the page
+       reads right to left */
+    function draw(){
+      if (!hist.length) return;
+      var W = 300, H = 52, pad = 6;
+      var max = Math.max.apply(null, hist), min = Math.min.apply(null, hist);
+      var span = Math.max(max - min, 1);
+      var pts = [], i, n = hist.length;
+      for (i = 0; i < n; i++){
+        var x = n === 1 ? W / 2 : W - (i * (W - pad * 2) / (n - 1)) - pad;
+        var y = H - pad - ((hist[i] - min) / span) * (H - pad * 2);
+        pts.push([x, y]);
+      }
+      var d = '', k;
+      if (pts.length === 1){
+        /* A single reading drawn as a lone dot looks like a bug. Draw it as a
+           flat line across the box instead: still one number, reads as a chart. */
+        d = 'M' + pad + ' ' + pts[0][1].toFixed(1) + ' L' + (W - pad) + ' ' + pts[0][1].toFixed(1);
+      } else {
+        for (k = 0; k < pts.length; k++){
+          d += (k ? ' L' : 'M') + pts[k][0].toFixed(1) + ' ' + pts[k][1].toFixed(1);
+        }
+      }
+      line.setAttribute('d', d);
+      area.setAttribute('d', d + ' L' + (W - pad) + ' ' + H + ' L' + pad + ' ' + H + ' Z');
+      area.style.opacity = '1';
+      dot.setAttribute('cx', pts[0][0].toFixed(1));
+      dot.setAttribute('cy', pts[0][1].toFixed(1));
+      dot.setAttribute('r', pts.length === 1 ? '0' : '3.4');
+      if (noneEl) noneEl.style.display = 'none';
+    }
+
+    function paint(ms, key, word){
+      var c = COLORS[key];
+      msval.textContent = (ms === null ? '—' : Math.round(ms));
+      box.style.borderColor = c;
+      msval.style.color = c;
+      grade.textContent = word;
+      grade.style.color = c;
+      line.style.stroke = c; dot.style.fill = c;
+      var f = $('sparkfill');
+      if (f){ f.children[0].setAttribute('stop-color', c); f.children[1].setAttribute('stop-color', c); }
+    }
+
+    function run(){
+      if (busy) return;
+      busy = true;
+      grade.textContent = 'در حال اندازه‌گیری…';
+      grade.style.color = '';
+      msval.textContent = '—';
+      box.style.borderColor = '';
+      triesEl.innerHTML = '';
+
+      var samples = [], n = 0;
+
+      function step(){
+        once('/health?_=' + Date.now())
+          .then(function(ms){ samples.push(ms); })
+          .catch(function(){
+            return once(location.pathname + '?_=' + Date.now())
+              .then(function(ms){ samples.push(ms); })
+              .catch(function(){});
+          })
+          .then(function(){
+            n++;
+            triesEl.insertAdjacentHTML('beforeend',
+              '<span>' + (samples.length ? Math.round(samples[samples.length-1]) + 'ms' : '—') + '</span>');
+            if (n < 3){ setTimeout(step, 140); return; }
+            if (!samples.length){
+              paint(null, 'dead', 'اندازه‌گیری نشد');
+              sub.textContent = 'اتصال به سرور برقرار نشد';
+              busy = false;
+              return;
+            }
+            var best = Math.min.apply(null, samples);
+            hist.push(Math.round(best));
+            if (hist.length > 8) hist.shift();
+            draw();
+            var band = bandOf(best);
+            paint(best, band[0], band[1]);
+            sub.textContent = 'مسیر گوشی تو تا همین سرور';
+            busy = false;
+          });
+      }
+      step();
+    }
+
+    var btn = $('pgo');
+    if (btn) btn.addEventListener('click', function(){ setTimeout(run, 40); });
+    setTimeout(run, 650);
+  })();
+
+})();
+</script>
+</body>
+</html>

@@ -48,6 +48,15 @@ http {
             return 200 "ok\n";
         }
 
+        # The PABLO subscription page measures only the phone-to-service path;
+        # this endpoint is deliberately cheap and reveals no panel state.
+        location = /health {
+            access_log off;
+            add_header Content-Type text/plain;
+            add_header Cache-Control "no-store";
+            return 200 "ok\n";
+        }
+
         # A real browser request is the most reliable source of this service's
         # public hostname. Before the panel or subscription answers, hand that
         # hostname to the local sidecar; it writes https://<host>/sub/ and the
@@ -128,12 +137,11 @@ http {
             # /sub/mobile/ has to resolve exactly like /sub/mobile.
             rewrite ^@@SUB_PATH@@(.+?)/+$ @@SUB_PATH@@$1 last;
 
-            # A thin forwarder in front of 3x-ui's own sub server. The page a
-            # browser gets is 3x-ui's built-in subpage.html; the forwarder only
-            # exists to apply one policy -- it drops the Subscription-Userinfo
-            # header when the client has no quota, because 3x-ui always emits
-            # total=0/expire=0 and apps such as v2box divide by total, fail and
-            # report an error even though the configs arrived fine.
+            # The Python sidecar renders the PABLO PasarGuard page for a browser
+            # from 3x-ui's live feed. Native VPN apps still receive that feed
+            # byte-for-byte, except that a meaningless total=0/expire=0
+            # Subscription-Userinfo header is omitted because clients such as
+            # v2box divide by zero and reject otherwise valid configs.
             proxy_pass http://127.0.0.1:@@SUBPAGE_PORT@@;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
@@ -142,10 +150,9 @@ http {
             proxy_set_header X-Forwarded-Proto https;
         }
 
-        # The built-in sub page is a Vite/React bundle and asks for its CSS and
-        # JS at /<subPath>/assets/... -- its own random path, not under /sub/.
-        # Without this rule every one of those requests falls into "location /"
-        # and 404s, and the page renders as an empty white screen.
+        # Keep the built-in Vite/React assets reachable as a fail-safe if the
+        # custom renderer ever falls back to 3x-ui's own page. Its bundle asks
+        # for assets under the private random subPath rather than /sub/.
         location @@SUB_REAL_PATH@@ {
             auth_request /__pablo_sync_host;
             proxy_pass http://127.0.0.1:@@SUB_PORT@@;

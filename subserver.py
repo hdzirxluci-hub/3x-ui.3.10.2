@@ -1,31 +1,34 @@
 #!/usr/bin/env python3
-"""A thin forwarder in front of 3x-ui's own subscription server.
+"""PABLO subscription page and transparent 3x-ui feed forwarder.
 
-The page a browser gets is 3x-ui's built-in subpage.html -- its own title, layout
-and assets. The forwarder adds the blue accent and owns two edge-only policies
-that the panel cannot know by itself:
+A browser receives the PABLO PasarGuard subscription interface rendered with
+3x-ui's own links and quota headers. VPN applications receive the original raw
+3x-ui subscription byte-for-byte. This sidecar also owns two Railway edge rules:
 
-* nginx supplies the hostname of a real public request to an internal endpoint.
-  It is persisted as https://<host>/sub/ and as the managed inbound's :443/TLS
-  subscription address, so 3x-ui never publishes its loopback :2096 or :10085.
-* 3x-ui always emits a Subscription-Userinfo header, filling 0 for any limit the
-  client does not have. Apps such as v2box divide usage by total, hit zero and
-  report an error even though the configs arrived, so the header is forwarded
-  only when it carries something meaningful to chart.
-
-Everything else -- status, content type, body, and every other header such as
-Profile-Title and Profile-Update-Interval -- passes through as-is.
+* a real public request synchronizes only PABLO's still-automatic Host and public
+  subscription URI; a Host edited in the panel is operator-owned and preserved;
+* a meaningless total=0/expire=0 Subscription-Userinfo header is omitted from
+  raw app responses because several clients divide by zero and reject the feed.
 """
 
+from __future__ import annotations
+
+import base64
 import os
 import re
+import sqlite3
 import sys
 import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from types import SimpleNamespace
+
+from jinja2 import Environment, FileSystemLoader
 
 from public_endpoint import normalize_public_host, sync_public_endpoint
 
@@ -40,11 +43,41 @@ PUBLIC_PORT = int(os.environ.get("PUBLIC_PORT", "443"))
 PUBLIC_TLS = os.environ.get("PUBLIC_TLS", "tls")
 BRAND = os.environ.get("BRAND", "PABLO")
 TUNNEL_PATH = os.environ.get("TUNNEL_PATH", "/ws")
+TEMPLATE_DIR = os.environ.get(
+    "SUB_TEMPLATE_DIR", str(Path(__file__).resolve().parent / "templates")
+)
 SYNC_PATH = "/__pablo_sync_host"
 _SYNC_LOCK = threading.Lock()
 _SYNCED_HOST = None
 _SYNCED_AT = 0.0
 SYNC_TTL = 5.0
+_TEMPLATE = None
+
+# Every token below is emitted by browsers, not merely by an operating system.
+# Do not match bare android/iphone/ipad: native VPN clients include those words.
+BROWSER_UA = [
+    "mozilla", "chrome", "safari", "firefox", "edg/", "edge", "opera", "opr/",
+    "samsungbrowser", "crios", "fxios", "chromium", "yaapp", "yabrowser",
+    "ucbrowser", "miuibrowser", "huaweibrowser", "vivobrowser", "oppobrowser",
+    "trident", "gecko", "webkit", "iemobile",
+]
+
+# BaseHTTPRequestHandler creates Date and Server itself. Everything else here is
+# hop-by-hop or explicitly regenerated from the final response body.
+HOP_BY_HOP = {
+    "date", "server", "connection", "keep-alive", "proxy-authenticate",
+    "proxy-authorization", "te", "trailer", "transfer-encoding", "upgrade",
+    "content-length", "cache-control",
+}
+
+APP_IMPORTS = (
+    ("v2rayNG", "android", "v2rayng://install-sub?url={url}"),
+    ("Hiddify", "android", "hiddify://import/{url}"),
+    ("V2Box", "ios", "v2box://install-sub?url={url}"),
+    ("Streisand", "ios", "streisand://import/{url}"),
+    ("NekoBox", "android", "sn://subscription?url={url}"),
+    ("Happ", "ios", "happ://add/{url}"),
+)
 
 
 def sync_public_host(host):
@@ -81,81 +114,8 @@ def sync_public_host(host):
         return bool(result.changed)
 
 
-# User agents that are plainly a browser. Used only to decide whether to ask
-# for the HTML page when Accept is too vague to tell.
-# Deliberately no bare "android", "iphone" or "ipad" here: an app's user agent
-# routinely carries the platform ("Streisand/1.6.43 (com.kavakebi.streisand;
-# build 1; iOS 17.5.1) Alamofire/5.10.2"), and matching on the platform alone
-# would hand a VPN client an HTML page instead of its feed. Every entry below
-# is something only a browser says.
-BROWSER_UA = [
-    "mozilla", "chrome", "safari", "firefox", "edg/", "edge", "opera", "opr/",
-    "samsungbrowser", "crios", "fxios", "chromium", "yaapp", "yabrowser",
-    "ucbrowser", "miuibrowser", "huaweibrowser", "vivobrowser", "oppobrowser",
-    "trident", "gecko", "webkit", "iemobile",
-]
-
-# Headers that must not be echoed back: hop-by-hop ones, plus the ones this
-# process sets itself.
-# 3x-ui 3.10 brought its own subscription page, and it is already blue:
-# a clean light/dark card driven by the theme tokens. So this block is no
-# longer a repair -- it is only the accent, set to the lighter blue the
-# rest of the brand uses, and it stays out of the way of everything else.
-BLUE_CSS = """
-/* ---- PABLO: blue accent ---- */
-.subscription-page{
-  --bg-page:#e8f1fb;--bg-card:#ffffff;
-  --ant-color-primary:#0ea5e9!important;
-  --ant-color-primary-hover:#38bdf8!important;
-  --ant-color-primary-active:#0284c7!important;
-  --ant-color-primary-border:#7dd3fc!important;
-  --ant-color-primary-bg:rgba(14,165,233,.12)!important;
-  --ant-color-link:#0284c7!important;
-  --ant-color-info:#0ea5e9!important;
-}
-.subscription-page.is-dark{
-  --bg-page:#0f1722;--bg-card:#161f2c;
-  --ant-color-primary:#38bdf8!important;
-  --ant-color-primary-hover:#7dd3fc!important;
-  --ant-color-primary-active:#0ea5e9!important;
-  --ant-color-primary-border:#0ea5e9!important;
-  --ant-color-primary-bg:rgba(56,189,248,.16)!important;
-  --ant-color-link:#7dd3fc!important;
-  --ant-color-info:#38bdf8!important;
-}
-.subscription-page.is-dark.is-ultra{
-  --bg-page:#04080d;--bg-card:#0d141d;
-  --ant-color-primary:#38bdf8!important;
-  --ant-color-primary-hover:#7dd3fc!important;
-  --ant-color-link:#7dd3fc!important;
-}
-/* antd keeps a second set of variables per component, computed from the
-   theme's own primary -- overriding --ant-color-primary alone leaves the
-   active tab and the progress rail behind. */
-.subscription-page,.subscription-page *{
-  --ant-tabs-item-selected-color:#0284c7!important;
-  --ant-tabs-ink-bar-color:#0284c7!important;
-  --ant-tabs-item-hover-color:#0ea5e9!important;
-  --ant-tabs-item-active-color:#0369a1!important;
-  --ant-progress-remaining-color:rgba(14,165,233,.16)!important;
-}
-.subscription-page.is-dark,.subscription-page.is-dark *{
-  --ant-tabs-item-selected-color:#38bdf8!important;
-  --ant-tabs-ink-bar-color:#38bdf8!important;
-  --ant-tabs-item-hover-color:#7dd3fc!important;
-  --ant-tabs-item-active-color:#0ea5e9!important;
-  --ant-progress-remaining-color:rgba(56,189,248,.2)!important;
-}
-"""
-
-HOP_BY_HOP = {
-    "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
-    "te", "trailer", "transfer-encoding", "upgrade", "content-length",
-}
-
-
 def parse_userinfo(value):
-    """Read the Subscription-Userinfo header into numbers, or None."""
+    """Read a Subscription-Userinfo header into integer fields."""
     out = {}
     for part in (value or "").split(";"):
         if "=" not in part:
@@ -169,137 +129,377 @@ def parse_userinfo(value):
 
 
 def has_quota(ui):
-    """Is there anything a client could actually chart?"""
+    """Return true only when a client has something meaningful to chart."""
     return bool(ui) and (ui.get("total", 0) > 0 or ui.get("expire", 0) > 0)
 
 
 def to_upstream(path):
-    """Map the public /sub/... path onto the sub server's own random path.
-
-    /sub/PABLO    -> /<subPath>PABLO
-    /sub or /sub/    -> /<subPath><default id>
-    /sub/whatever/x  -> /<subPath>whatever/x
-
-    The bare path has no sub id in it, and the sub server has no index to
-    answer with, so it falls back to the panel's default client. That keeps
-    /sub and /sub/ working instead of 404ing.
-    """
-    base = SUB_REAL_PATH if SUB_REAL_PATH.endswith("/") else SUB_REAL_PATH + "/"
-    if path == PUBLIC_PATH.rstrip("/") or path in ("", "/") or path == PUBLIC_PATH:
-        return base + DEFAULT_SUBID
-    if path.startswith(PUBLIC_PATH):
-        return base + path[len(PUBLIC_PATH):]
+    """Map stable public /sub paths onto 3x-ui's private random subPath."""
+    public = PUBLIC_PATH if PUBLIC_PATH.endswith("/") else PUBLIC_PATH + "/"
+    private = SUB_REAL_PATH if SUB_REAL_PATH.endswith("/") else SUB_REAL_PATH + "/"
+    if path == public.rstrip("/") or path in ("", "/") or path == public:
+        return private + DEFAULT_SUBID
+    if path.startswith(public):
+        return private + path[len(public):]
     return path
 
 
+def subscription_id(path):
+    """Extract the 3x-ui subId represented by a public path."""
+    public = PUBLIC_PATH if PUBLIC_PATH.endswith("/") else PUBLIC_PATH + "/"
+    if path == public.rstrip("/") or path in ("", "/") or path == public:
+        return DEFAULT_SUBID
+    if path.startswith(public):
+        value = urllib.parse.unquote(path[len(public):].strip("/"))
+        return value or DEFAULT_SUBID
+    return DEFAULT_SUBID
 
-def recolour(html):
-    """Put the blue palette into the panel's own subscription page."""
-    if b"PABLO: blue" in html:
-        return html
-    marker = b"</body>"
-    style = ("<style>%s</style>" % BLUE_CSS).encode("utf-8")
-    at = html.rfind(marker)
-    if at == -1:
-        return html + style
-    return html[:at] + style + html[at:]
+
+def is_browser_request(user_agent, accept, query=""):
+    """Distinguish the human page from native subscription clients."""
+    params = urllib.parse.parse_qs(query, keep_blank_values=True)
+    if params.get("html") == ["1"] or any(
+        str(v).lower() == "html" for v in params.get("view", [])
+    ):
+        return True
+
+    accept = (accept or "").lower()
+    if "text/html" in accept or "application/xhtml+xml" in accept:
+        return True
+
+    media = [part.split(";", 1)[0].strip() for part in accept.split(",") if part.strip()]
+    vague = not media or all(item in ("*/*", "") for item in media)
+    if not vague:
+        return False
+    ua = (user_agent or "").lower()
+    return any(token in ua for token in BROWSER_UA)
+
+
+def _raw_query(query):
+    """Drop only selectors that would make the upstream return its HTML app."""
+    pairs = urllib.parse.parse_qsl(query or "", keep_blank_values=True)
+    pairs = [
+        (key, value) for key, value in pairs
+        if key.lower() not in ("html", "view")
+    ]
+    return urllib.parse.urlencode(pairs)
+
+
+def decode_subscription_links(payload):
+    """Decode 3x-ui's raw base64 feed into individual share links."""
+    raw = (payload or b"").strip()
+    if not raw:
+        return []
+
+    def links_from(text):
+        return [
+            line.strip() for line in text.replace("\r", "\n").split("\n")
+            if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", line.strip())
+        ]
+
+    try:
+        plain = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        plain = ""
+    links = links_from(plain)
+    if links:
+        return links
+
+    compact = b"".join(raw.split())
+    compact += b"=" * (-len(compact) % 4)
+    for decoder in (base64.b64decode, base64.urlsafe_b64decode):
+        try:
+            decoded = decoder(compact).decode("utf-8")
+        except Exception:
+            continue
+        links = links_from(decoded)
+        if links:
+            return links
+    return []
+
+
+def _truthy(value):
+    if isinstance(value, str):
+        return value.strip().lower() not in ("", "0", "false", "no", "off")
+    return bool(value)
+
+
+def _subscription_rows(db_path, sub_id):
+    try:
+        con = sqlite3.connect(db_path, timeout=5)
+        try:
+            return con.execute(
+                "SELECT email,total_gb,expiry_time,enable FROM clients "
+                "WHERE sub_id=? ORDER BY id",
+                (sub_id,),
+            ).fetchall()
+        finally:
+            con.close()
+    except Exception as exc:  # page still works when the DB is briefly locked
+        sys.stderr.write("[subfwd] could not read subscription clients: %s\n" % exc)
+        return []
+
+
+def _traffic_fallback(db_path, emails):
+    if not emails:
+        return 0
+    try:
+        con = sqlite3.connect(db_path, timeout=5)
+        try:
+            marks = ",".join("?" for _ in emails)
+            row = con.execute(
+                "SELECT COALESCE(SUM(up),0),COALESCE(SUM(down),0) "
+                f"FROM client_traffics WHERE email IN ({marks})",
+                emails,
+            ).fetchone()
+            return int(row[0] or 0) + int(row[1] or 0)
+        finally:
+            con.close()
+    except Exception:
+        return 0
+
+
+def subscription_user(db_path, sub_id, userinfo=None, now=None):
+    """Map 3x-ui client/header data onto PasarGuard's template contract."""
+    now = now or datetime.now(timezone.utc)
+    rows = _subscription_rows(db_path, sub_id)
+    emails = [str(row[0]) for row in rows if row[0]]
+    username = emails[0] if len(emails) == 1 else (sub_id or BRAND)
+
+    ui = userinfo or {}
+    used = int(ui.get("upload", 0) or 0) + int(ui.get("download", 0) or 0)
+    if not userinfo:
+        used = _traffic_fallback(db_path, emails)
+
+    total = int(ui.get("total", 0) or 0)
+    if not userinfo and rows:
+        limits = [int(row[1] or 0) for row in rows]
+        total = 0 if any(limit == 0 for limit in limits) else sum(limits)
+
+    expire_seconds = int(ui.get("expire", 0) or 0)
+    positive_expiries = [int(row[2] or 0) for row in rows if int(row[2] or 0) > 0]
+    held_durations = [-int(row[2]) for row in rows if int(row[2] or 0) < 0]
+    if expire_seconds > 100_000_000_000:  # tolerate a millisecond header
+        expire_seconds //= 1000
+    if not expire_seconds and len(positive_expiries) == 1:
+        expire_seconds = positive_expiries[0] // 1000
+
+    enabled = [_truthy(row[3]) for row in rows]
+    on_hold = bool(rows and held_durations and len(held_durations) == len(rows))
+    if enabled and not any(enabled):
+        status = "disabled"
+    elif on_hold:
+        status = "on_hold"
+    elif expire_seconds and expire_seconds <= int(now.timestamp()):
+        status = "expired"
+    elif total > 0 and used >= total:
+        status = "limited"
+    else:
+        status = "active"
+
+    expire = None
+    if expire_seconds and not on_hold:
+        try:
+            expire = datetime.fromtimestamp(expire_seconds, timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            expire = None
+
+    return SimpleNamespace(
+        username=username,
+        status=SimpleNamespace(value=status),
+        used_traffic=used,
+        data_limit=total,
+        expire=expire,
+        on_hold_expire_duration=(min(held_durations) / 1000 if on_hold else None),
+    )
+
+
+def _decode_base64_header(value):
+    value = (value or "").strip()
+    if not value:
+        return ""
+    if not value.lower().startswith("base64:"):
+        return value
+    try:
+        return base64.b64decode(value.split(":", 1)[1]).decode("utf-8")
+    except Exception:
+        return ""
+
+
+def _setting(db_path, key, default=""):
+    try:
+        con = sqlite3.connect(db_path, timeout=5)
+        try:
+            row = con.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+            return row[0] if row and row[0] is not None else default
+        finally:
+            con.close()
+    except Exception:
+        return default
+
+
+def _bytesformat(number, *args, **kwargs):
+    value = float(number or 0)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if value < 1024 or unit == "TB":
+            return f"{value:.0f} {unit}" if unit == "B" else f"{value:.1f} {unit}"
+        value /= 1024
+
+
+def _datetimeformat(value, fmt="%Y-%m-%d %H:%M:%S"):
+    return value.strftime(fmt) if value is not None else ""
+
+
+def _get_template():
+    global _TEMPLATE
+    if _TEMPLATE is None:
+        env = Environment(
+            loader=FileSystemLoader([TEMPLATE_DIR]),
+            autoescape=False,
+            auto_reload=False,
+        )
+        env.filters["bytesformat"] = _bytesformat
+        env.filters["datetime"] = _datetimeformat
+        env.globals["now"] = lambda: datetime.now(timezone.utc)
+        _TEMPLATE = env.get_template("subscription/index.html")
+    return _TEMPLATE
+
+
+def _apps(subscription_url):
+    encoded = urllib.parse.quote(subscription_url, safe="")
+    return [
+        SimpleNamespace(
+            name=name,
+            platform=platform,
+            icon_url="",
+            import_url=pattern.format(url=encoded),
+        )
+        for name, platform, pattern in APP_IMPORTS
+    ]
+
+
+def render_subscription(db_path, request_path, host_header, headers, payload):
+    """Render the copied PasarGuard page from 3x-ui's live subscription data."""
+    sub_id = subscription_id(request_path)
+    ui = parse_userinfo(headers.get("Subscription-Userinfo"))
+    user = subscription_user(db_path, sub_id, ui)
+    links = decode_subscription_links(payload)
+    announce = _decode_base64_header(headers.get("Announce"))
+    if not announce:
+        announce = _setting(db_path, "subAnnounce", "")
+
+    public_host = normalize_public_host(host_header) or "localhost"
+    path = request_path or (PUBLIC_PATH + sub_id)
+    subscription_url = "https://%s%s" % (public_host, path)
+    return _get_template().render(
+        user=user,
+        links=links,
+        announce=announce,
+        announce_url="",
+        apps=_apps(subscription_url),
+    )
+
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "subfwd"
+    server_version = "pablo-subfwd"
     sys_version = ""
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt, *args):
+        if urllib.parse.urlparse(self.path).path == SYNC_PATH:
+            return
         sys.stderr.write("[subfwd] %s\n" % (fmt % args))
 
     def _sync_host(self):
-        # nginx marks this route internal and supplies its normalized $host.
-        # Fail open: a transient SQLite lock must never make the panel itself
-        # unavailable; the next request retries because the cache was not set.
+        # nginx marks this route internal. A transient SQLite lock must never
+        # make the panel unavailable, so fail open and retry on the next request.
         host = normalize_public_host(self.headers.get("X-Public-Host"))
         try:
             if host:
                 sync_public_host(host)
-        except Exception as e:  # noqa: BLE001 - log and retry next request
-            sys.stderr.write("[subfwd] public endpoint sync failed: %s\n" % e)
+        except Exception as exc:  # noqa: BLE001 - log and retry next request
+            sys.stderr.write("[subfwd] public endpoint sync failed: %s\n" % exc)
         self.send_response(204)
         self.send_header("Content-Length", "0")
         self.end_headers()
 
-    def _relay(self, method):
-        parsed = urllib.parse.urlparse(self.path)
-        target = "http://127.0.0.1:%d%s" % (
-            SUB_PORT,
-            urllib.parse.quote(to_upstream(parsed.path), safe="/:%")
-            + (("?" + parsed.query) if parsed.query else ""),
-        )
+    def _target(self, parsed, query=None):
+        query = parsed.query if query is None else query
+        suffix = urllib.parse.quote(to_upstream(parsed.path), safe="/:%")
+        if query:
+            suffix += "?" + query
+        return "http://127.0.0.1:%d%s" % (SUB_PORT, suffix)
 
-        # Forward the client's own headers so the sub server can still tell a
-        # browser from a VPN app -- that is what makes it serve its HTML page
-        # to one and base64 to the other.
-        fwd = {}
-        for key in ("User-Agent", "Accept", "Accept-Language", "Cookie",
-                    "If-None-Match", "If-Modified-Since"):
+    def _forward_headers(self):
+        forwarded = {}
+        for key in (
+            "User-Agent", "Accept", "Accept-Language", "Cookie",
+            "If-None-Match", "If-Modified-Since",
+        ):
             value = self.headers.get(key)
             if value:
-                fwd[key] = value
-        fwd["Host"] = self.headers.get("Host") or "127.0.0.1:%d" % SUB_PORT
+                forwarded[key] = value
+        forwarded["Host"] = self.headers.get("Host") or "127.0.0.1:%d" % SUB_PORT
+        return forwarded
 
-        # 3x-ui serves its HTML page only when Accept mentions text/html. Every
-        # real browser says so, but an in-app webview or a browser behind a
-        # header-stripping proxy can arrive with a bare */* and would silently
-        # be handed base64 -- the same blank screen this whole thing exists to
-        # prevent. If the user agent is plainly a browser and Accept says
-        # nothing useful, ask for the page on its behalf.
-        ua = (fwd.get("User-Agent") or "").lower()
-        accept = (fwd.get("Accept") or "").lower()
-        # If Accept already names a concrete type that is not HTML, the caller
-        # has told us what it wants -- an app asking for application/json must
-        # not be redirected to the page. Only a vague or empty Accept is a
-        # case worth helping.
-        vague = (not accept) or accept in ("*/*", "*/*;q=0.8")
-        if vague and any(b in ua for b in BROWSER_UA):
-            fwd["Accept"] = "text/html,application/xhtml+xml,*/*;q=0.8"
-
-        length = self.headers.get("Content-Length")
-        body = self.rfile.read(int(length)) if length and length.isdigit() else None
-
-        req = urllib.request.Request(target, data=body, headers=fwd, method=method)
+    @staticmethod
+    def _fetch(target, method, forwarded, body=None):
+        request = urllib.request.Request(
+            target, data=body, headers=forwarded, method=method
+        )
         try:
-            with urllib.request.urlopen(req, timeout=15) as r:
-                status, headers, payload = r.status, r.headers, r.read()
-        except urllib.error.HTTPError as e:
-            status, headers, payload = e.code, e.headers, e.read()
-        except Exception as e:  # noqa: BLE001 - surfaced as a 502
-            sys.stderr.write("[subfwd] upstream failed: %s\n" % e)
-            payload = b"sub server unreachable"
-            self.send_response(502)
-            self.send_header("Content-Type", "text/plain; charset=utf-8")
-            self.send_header("Content-Length", str(len(payload)))
-            self.end_headers()
+            with urllib.request.urlopen(request, timeout=15) as response:
+                return response.status, response.headers, response.read()
+        except urllib.error.HTTPError as exc:
+            return exc.code, exc.headers, exc.read()
+
+    def _bad_gateway(self, exc):
+        sys.stderr.write("[subfwd] upstream failed: %s\n" % exc)
+        payload = b"sub server unreachable"
+        self.send_response(502)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        if self.command != "HEAD":
             self.wfile.write(payload)
-            return
 
-        ctype = (headers.get("Content-Type") or "").lower()
-        if "text/html" in ctype:
-            payload = recolour(payload)
+    def _send_custom(self, html, method):
+        payload = html.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Language", "fa")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'none'; style-src 'unsafe-inline'; "
+            "script-src 'unsafe-inline'; img-src data:; connect-src 'self'; "
+            "base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        )
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        if method != "HEAD":
+            self.wfile.write(payload)
 
+    def _send_upstream(self, status, headers, payload, method):
         ui = parse_userinfo(headers.get("Subscription-Userinfo"))
-
         self.send_response(status)
         for key, value in headers.items():
             low = key.lower()
             if low in HOP_BY_HOP:
                 continue
             if low == "subscription-userinfo":
-                # Only pass it on when it says something. total=0 means the
-                # client has no cap, and apps that chart usage break on it.
                 if has_quota(ui):
                     self.send_header(
                         "Subscription-Userinfo",
                         "upload=%d; download=%d; total=%d; expire=%d" % (
                             ui.get("upload", 0), ui.get("download", 0),
-                            ui.get("total", 0), ui.get("expire", 0)))
+                            ui.get("total", 0), ui.get("expire", 0),
+                        ),
+                    )
                 continue
             self.send_header(key, value)
         self.send_header("Content-Length", str(len(payload)))
@@ -307,6 +507,70 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         if method != "HEAD":
             self.wfile.write(payload)
+
+    def _relay(self, method):
+        parsed = urllib.parse.urlparse(self.path)
+        forwarded = self._forward_headers()
+        wants_page = is_browser_request(
+            forwarded.get("User-Agent"), forwarded.get("Accept"), parsed.query
+        )
+
+        length = self.headers.get("Content-Length")
+        body = self.rfile.read(int(length)) if length and length.isdigit() else None
+
+        if wants_page:
+            raw_headers = {
+                "Host": forwarded["Host"],
+                "User-Agent": "PABLO-subpage/1.0",
+                "Accept": "text/plain",
+            }
+            if forwarded.get("Accept-Language"):
+                raw_headers["Accept-Language"] = forwarded["Accept-Language"]
+            try:
+                status, headers, payload = self._fetch(
+                    self._target(parsed, _raw_query(parsed.query)),
+                    "GET",  # a HEAD still needs data to compute the page length
+                    raw_headers,
+                )
+            except Exception as exc:  # noqa: BLE001 - surfaced as a 502
+                self._bad_gateway(exc)
+                return
+
+            if status == 200:
+                try:
+                    html = render_subscription(
+                        DB_FILE,
+                        parsed.path,
+                        forwarded["Host"],
+                        headers,
+                        payload,
+                    )
+                    self._send_custom(html, method)
+                    return
+                except Exception as exc:  # fail back to 3x-ui's own page
+                    sys.stderr.write(
+                        "[subfwd] custom subscription render failed: %s\n" % exc
+                    )
+                    fallback = dict(forwarded)
+                    fallback["Accept"] = "text/html,application/xhtml+xml,*/*;q=0.8"
+                    try:
+                        status, headers, payload = self._fetch(
+                            self._target(parsed), method, fallback, body
+                        )
+                    except Exception as fallback_exc:  # noqa: BLE001
+                        self._bad_gateway(fallback_exc)
+                        return
+            self._send_upstream(status, headers, payload, method)
+            return
+
+        try:
+            status, headers, payload = self._fetch(
+                self._target(parsed), method, forwarded, body
+            )
+        except Exception as exc:  # noqa: BLE001 - surfaced as a 502
+            self._bad_gateway(exc)
+            return
+        self._send_upstream(status, headers, payload, method)
 
     def do_GET(self):  # noqa: N802
         if urllib.parse.urlparse(self.path).path == SYNC_PATH:

@@ -144,8 +144,8 @@ https://YOUR-DOMAIN.up.railway.app/healthz
 https://YOUR-DOMAIN.up.railway.app/sub/SUB-ID
 ```
 
-- در مرورگر: صفحه‌ی آبی ساب باز می‌شود.
-- در v2rayNG، Streisand یا v2box: کانفیگ خام دریافت می‌شود.
+- در مرورگر: رابط کامل ساب **PasarGuard با برند PABLO** باز می‌شود.
+- در v2rayNG، Streisand یا v2box: کانفیگ خام خود 3x-ui دریافت می‌شود.
 - کانفیگ عمومی باید `:443` و `security=tls` داشته باشد.
 
 شکل‌های زیر غلط‌اند و از اینترنت باز نمی‌شوند:
@@ -156,8 +156,11 @@ https://YOUR-DOMAIN:2096/...
 vless://...@YOUR-DOMAIN:10085?...security=none
 ```
 
-نسخه‌ی فعلی هنگام بازشدن پنل یا ساب، دامنه‌ی واقعی را تشخیص می‌دهد و آدرس
-عمومی را به HTTPS، پورت `443` و TLS منتقل می‌کند.
+نسخه‌ی فعلی هنگام بازشدن پنل یا ساب، دامنه‌ی واقعی را تشخیص می‌دهد و فقط Host
+خودکار PABLO را به HTTPS، پورت `443` و TLS منتقل می‌کند. به محض اینکه همان Host
+را در بخش **Hosts / میزبان‌ها** ویرایش و Save کنی، دستی محسوب می‌شود و درخواست
+بعدی، Restart یا Redeploy مقدارهای Address، Port، SNI، Host Header و Path را
+برنمی‌گرداند. Hostهای اضافه و CDNهای دستی هم هیچ‌وقت بازنویسی نمی‌شوند.
 
 ---
 
@@ -249,7 +252,9 @@ Phone ──HTTPS──▶ Railway Edge ──HTTP──▶ nginx :$PORT
 | `Dockerfile` | نصب باینری رسمی `3x-ui v3.10.2` و nginx |
 | `entrypoint.sh` | آماده‌سازی دیتابیس، پنل، اینباند و آدرس عمومی |
 | `nginx.conf.template` | تقسیم مسیرهای عمومی و اتصال WebSocket |
-| `subserver.py` | صفحه‌ی ساب، سازگاری اپ‌ها و همگام‌سازی دامنه |
+| `subserver.py` | رندر صفحه‌ی PasarGuard، فید خام اپ‌ها و همگام‌سازی امن دامنه |
+| `public_endpoint.py` | حفظ مالکیت Host خودکار/دستی در دیتابیس پنل |
+| `templates/subscription/` | رابط، لوگو، QR و تاریخ جلالی PABLO |
 | `railway.json` | Healthcheck و سیاست Restart |
 
 ---

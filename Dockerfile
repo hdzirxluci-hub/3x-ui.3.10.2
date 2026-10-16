@@ -16,7 +16,7 @@ ARG TARGETARCH=amd64
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates curl jq nginx python3 sqlite3 tzdata iproute2 procps \
+        ca-certificates curl jq nginx python3 python3-jinja2 sqlite3 tzdata iproute2 procps \
     && ln -sf /usr/share/zoneinfo/Asia/Tehran /etc/localtime \
     && echo "Asia/Tehran" > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
@@ -45,6 +45,7 @@ RUN set -eux; \
 RUN mkdir -p /etc/x-ui /var/log/x-ui /run/nginx
 
 COPY nginx.conf.template /opt/nginx.conf.template
+COPY templates /opt/templates
 COPY public_endpoint.py /opt/public_endpoint.py
 COPY subserver.py /opt/subserver.py
 COPY entrypoint.sh /opt/entrypoint.sh
