@@ -498,86 +498,14 @@ PY
 # Idempotent, and it only touches its own entry: an address configured by hand in
 # the panel (a different domain, a CDN) is left exactly as it is.
 if [ -n "$PUBLIC_HOST" ]; then
-  python3 - "$PUBLIC_HOST" "$PUBLIC_PORT" "$PUBLIC_TLS" "$INBOUND_PORT" \
-           "$BRAND" "$SUB_PATH" <<'PUBADDR_PY'
-import json, sqlite3, sys
-host, port, force_tls = sys.argv[1], int(sys.argv[2]), sys.argv[3]
-in_port, remark, sub_path = int(sys.argv[4]), sys.argv[5], sys.argv[6]
-
-# externalProxy is the row that rewrites the address, port and TLS in every
-# generated link and in the subscription.
-entry = {"forceTls": force_tls, "dest": host, "port": port,
-         "remark": remark, "sni": host}
-# subURI is what the panel builds the link on its Clients page from. Left empty it
-# reads http://<domain>:2096/..., a port Railway does not expose.
-sub_uri = f"https://{host}{sub_path}"
-
-try:
-    con = sqlite3.connect("/etc/x-ui/x-ui.db")
-    for iid, ss in con.execute(
-            "SELECT id, stream_settings FROM inbounds WHERE port=?", (in_port,)):
-        try:
-            obj = json.loads(ss)
-        except Exception:
-            continue
-        proxies = obj.get("externalProxy") or []
-        if proxies and not any(isinstance(p, dict) and p.get("remark") == remark
-                               for p in proxies):
-            print(f"[entrypoint] inbound {iid} has an address set by hand; "
-                  f"leaving it alone")
-            continue
-        if proxies == [entry]:
-            continue
-        obj["externalProxy"] = [entry]
-        con.execute("UPDATE inbounds SET stream_settings=? WHERE id=?",
-                    (json.dumps(obj, ensure_ascii=False), iid))
-        print(f"[entrypoint] inbound {iid} now answers on {host}:{port} ({force_tls})")
-
-    # 3.10 keeps the public address in its own `hosts` table as well, and that
-    # row is what the subscription actually builds links from once it is there.
-    # A row left pointing at the previous domain keeps handing out an address
-    # that no longer answers, so it moves with the domain instead of sitting
-    # still. Only rows that already name an address are touched, and only for the
-    # inbound this entrypoint manages -- anything else is someone's own work.
-    ids = [r[0] for r in con.execute(
-        "SELECT id FROM inbounds WHERE port=?", (in_port,))]
-    moved = 0
-    if ids:
-        placeholders = ",".join("?" * len(ids))
-        for hid, addr, hport, security, sni in con.execute(
-                f"SELECT id, address, port, security, sni FROM hosts "
-                f"WHERE inbound_id IN ({placeholders})", ids):
-            # The address can already be right while the row still carries the
-            # internal inbound port and security=none. Comparing only address
-            # leaves exactly that broken link behind, so verify the complete
-            # public endpoint before deciding this row is already finished.
-            try:
-                hport = int(hport)
-            except (TypeError, ValueError):
-                pass
-            if (addr, hport, security, sni) == (host, port, force_tls, host):
-                continue
-            con.execute("UPDATE hosts SET address=?, sni=?, port=?, security=? "
-                        "WHERE id=?", (host, host, port, force_tls, hid))
-            moved += 1
-    if moved:
-        print(f"[entrypoint] moved {moved} subscription address(es) to {host}")
-
-    row = con.execute("SELECT value FROM settings WHERE key='subURI'").fetchone()
-    cur = row[0] if row else ""
-    # This service has one deliberately stable public subscription route. Do
-    # not let Panel Settings silently fall back to http://host:2096/random/ or
-    # retain the previous Railway domain: both are dead from the public edge.
-    if cur != sub_uri:
-        if row:
-            con.execute("UPDATE settings SET value=? WHERE key='subURI'", (sub_uri,))
-        else:
-            con.execute("INSERT INTO settings(key,value) VALUES('subURI',?)", (sub_uri,))
-        print(f"[entrypoint] subURI set to {sub_uri}")
-    con.commit()
-except Exception as e:
-    print(f"[entrypoint] WARNING: could not set the public address: {e}")
-PUBADDR_PY
+  if ! python3 /opt/public_endpoint.py "$PUBLIC_HOST" \
+      --db "$DB_FILE" \
+      --inbound-port "$INBOUND_PORT" \
+      --brand "$BRAND" \
+      --sub-path "$SUB_PATH" \
+      --tunnel-path "$TUNNEL_PATH"; then
+    log "WARNING: could not synchronize the public endpoint"
+  fi
 fi
 
 # Existing deployments carry the old default name. The bootstrap below can only
